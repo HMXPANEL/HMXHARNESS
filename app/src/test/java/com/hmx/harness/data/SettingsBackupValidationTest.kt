@@ -132,15 +132,23 @@ class SettingsBackupValidationTest {
         }
     }
 
-    @Test fun workingCustomHttpEndpointsSurviveEncryptedBackup() {
+    @Test fun workingCustomEndpointsSurviveEncryptedBackup() {
         val json = kotlinx.serialization.json.Json { encodeDefaults = true }
-        for (url in listOf("http://my_server:11434/v1", "https://例え.テスト/v1", "HTTPS://EXAMPLE.COM/v1", "http://[::1]:11434/v1")) {
+        for (url in listOf("https://例え.テスト/v1", "HTTPS://EXAMPLE.COM/v1", "http://[::1]:11434/v1", "http://localhost:11434/v1")) {
             val original = SettingsBackupFile(settings = AppSettings(activeProviderId = "test"), providers = listOf(provider(url = url)))
             SettingsBackupValidation.validate(original)
             val encrypted = BackupEncryption.encrypt(json.encodeToString(SettingsBackupFile.serializer(), original).toByteArray(), "backup test password".toCharArray())
             val restored = json.decodeFromString(SettingsBackupFile.serializer(), BackupEncryption.decrypt(encrypted, "backup test password".toCharArray()).toString(Charsets.UTF_8))
             SettingsBackupValidation.validate(restored)
             org.junit.Assert.assertEquals(url, restored.providers.single().config.baseUrl)
+        }
+    }
+
+    @Test fun remotePlainHttpProviderRejected() {
+        for (url in listOf("http://my_server:11434/v1", "http://example.com/v1")) {
+            assertThrows(IllegalArgumentException::class.java) {
+                SettingsBackupValidation.validate(SettingsBackupFile(settings = AppSettings(), providers = listOf(provider(url = url))))
+            }
         }
     }
 

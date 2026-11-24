@@ -57,7 +57,12 @@ object RemoteUrlPolicy {
      */
     val secureTransportInterceptor = Interceptor { chain ->
         val url = chain.request().url
-        if (!allows(url)) {
+        val route = chain.connection()?.route()
+        // An explicitly configured HTTP proxy is a user-chosen transport: the
+        // request goes to the proxy, not directly to the target host. Keep that
+        // existing integration working; direct requests allow no remote HTTP.
+        val proxied = route != null && route.proxy.type() != java.net.Proxy.Type.DIRECT
+        if (!proxied && !allows(url)) {
             throw IOException("Blocked insecure request redirect to ${url.scheme}://${url.host}.")
         }
         chain.proceed(chain.request())
