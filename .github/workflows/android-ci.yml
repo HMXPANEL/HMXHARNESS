@@ -1,0 +1,111 @@
+name: HMXHARNESS Android CI
+
+# Cloud-only build. No Android Studio and no Gradle are required on a device.
+# The app's own build script omits the native block when the pinned NDK is not
+# installed, so this workflow deliberately does not install the NDK: it builds
+# the complete Kotlin/Compose application with the supported no-native path.
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hmxharness-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub OAuth Client ID
+        env:
+          # Public OAuth App identifier. Accept either a repository variable or
+          # an existing secret so older setups keep working; never printed.
+          CLIENT_ID: ${{ vars.HMX_GITHUB_CLIENT_ID || secrets.HMX_GITHUB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CLIENT_ID:-}" ]; then
+            printf 'GITHUB_CLIENT_ID=%s\n' "$CLIENT_ID" >> local.properties
+            echo "GitHub Device Flow Client ID configured."
+          else
+            echo "::warning::HMX_GITHUB_CLIENT_ID is not set. GitHub sign-in stays disabled in this build; personal access tokens remain available."
+          fi
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install pinned NDK and shader compiler
+        run: |
+          "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018"
+          sudo apt-get update && sudo apt-get install -y glslc
+
+      - name: Set up Gradle with caching
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Upload unit test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hmxharness-unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
+
+      - name: Run Android lint (debug)
+        run: ./gradlew :app:lintDebug --no-daemon --stacktrace
+
+      - name: Build debug and release APKs
+        run: ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK outputs
+        id: apks
+        run: |
+          set -euo pipefail
+          debug="app/build/outputs/apk/debug/app-debug.apk"
+          release="app/build/outputs/apk/release/app-release.apk"
+          for apk in "$debug" "$release"; do
+            test -s "$apk" || { echo "Missing or empty APK: $apk"; exit 1; }
+            echo "Verified: $apk ($(stat -c%s "$apk") bytes)"
+          done
+          mkdir -p dist
+          cp "$debug" dist/HMXHARNESS-debug.apk
+          cp "$release" dist/HMXHARNESS-release.apk
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hmxharness-apks
+          path: dist/*.apk
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publish build summary
+        if: always()
+        run: |
+          {
+            echo "## HMXHARNESS CI"
+            echo ""
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Workflow: \`${GITHUB_WORKFLOW}\`"
+            echo "- Debug APK: \`app/build/outputs/apk/debug/app-debug.apk\`"
+            echo "- Release APK: \`app/build/outputs/apk/release/app-release.apk\`"
+            echo "- Artifact: \`hmxharness-apks\`"
+          } >> "$GITHUB_STEP_SUMMARY"

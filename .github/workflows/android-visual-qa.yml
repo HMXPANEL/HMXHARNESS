@@ -1,0 +1,202 @@
+name: HMXHARNESS Visual QA (cloud emulator screenshots)
+
+# Cloud-only visual and performance QA. One fresh emulator per screen/theme so
+# SwiftShader instability never hides a category behind a previous crash.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Which QA suite to run'
+        required: true
+        default: screens
+        type: choice
+        options: [screens, performance, both]
+      screen:
+        description: 'Limit capture to one category'
+        required: false
+        default: all
+        type: choice
+        options: [all, onboarding, home, drawer, quickopen, tools, settings, appearance, github, providers, 9router, chat, code, dialog, menu]
+  push:
+    branches:
+      - feature/hmxharness-liquid-glass-final
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hmxharness-visual-qa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure GitHub OAuth Client ID
+        env:
+          # Public OAuth App identifier. Accept either a repository variable or
+          # an existing secret so older setups keep working; never printed.
+          CLIENT_ID: ${{ vars.HMX_GITHUB_CLIENT_ID || secrets.HMX_GITHUB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CLIENT_ID:-}" ]; then
+            printf 'GITHUB_CLIENT_ID=%s\n' "$CLIENT_ID" >> local.properties
+            echo "GitHub Device Flow Client ID configured."
+          else
+            echo "::warning::HMX_GITHUB_CLIENT_ID is not set. GitHub sign-in stays disabled in this build; personal access tokens remain available."
+          fi
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install pinned NDK and shader compiler
+        run: |
+          "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018"
+          sudo apt-get update && sudo apt-get install -y glslc
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace --no-configuration-cache
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hmxharness-glass-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+  capture:
+    needs: build
+    if: github.event_name != 'workflow_dispatch' || inputs.mode != 'performance'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        theme: [dark, light]
+        screen: [onboarding, home, drawer, quickopen, tools, settings, appearance, github, providers, 9router, chat, code, dialog, menu]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: hmxharness-glass-apk
+          path: app/build/outputs/apk/debug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || true
+      - name: Capture ${{ matrix.theme }} / ${{ matrix.screen }}
+        if: github.event_name != 'workflow_dispatch' || inputs.screen == 'all' || inputs.screen == matrix.screen
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          ANDROID_I_WANT_MY_TCG: 'yes'
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          cores: 2
+          ram-size: 4096M
+          apk-path: app/build/outputs/apk/debug/app-debug.apk
+          disable-animations: false
+          emulator-boot-timeout: 1800
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: |
+            mkdir -p screenshots logs
+            bash scripts/glass-capture.sh "${{ matrix.screen }}" "${{ matrix.theme }}" "$GITHUB_WORKSPACE/screenshots/${{ matrix.theme }}-${{ matrix.screen }}.png"
+      - uses: actions/upload-artifact@v4
+        if: always() && (github.event_name != 'workflow_dispatch' || inputs.screen == 'all' || inputs.screen == matrix.screen)
+        with:
+          name: shot-${{ matrix.theme }}-${{ matrix.screen }}
+          path: |
+            screenshots/**
+            logs/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  collect:
+    needs: capture
+    if: always() && (github.event_name != 'workflow_dispatch' || inputs.mode != 'performance')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shot-*
+          path: combined
+          merge-multiple: true
+      - name: Verify captures
+        env:
+          SCREEN: ${{ inputs.screen || 'all' }}
+        run: |
+          find combined -type f -name '*.png' -exec ls -lh {} \;
+          COUNT=$(find combined -type f -name '*.png' -size +1k | wc -l)
+          echo "captured_pngs=$COUNT"
+          if [ "$SCREEN" = "all" ] || [ -z "$SCREEN" ]; then test "$COUNT" -ge 24; else test "$COUNT" -ge 2; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hmxharness-glass-category-screenshots
+          path: combined/**
+          retention-days: 90
+
+  measure:
+    needs: build
+    if: github.event_name != 'workflow_dispatch' || inputs.mode != 'screens'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - profile: low
+            cores: 2
+            ram: 1024M
+          - profile: mid
+            cores: 2
+            ram: 2048M
+          - profile: high
+            cores: 4
+            ram: 4096M
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: hmxharness-glass-apk
+          path: app/build/outputs/apk/debug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || true
+      - name: Measure ${{ matrix.profile }} profile
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          ANDROID_I_WANT_MY_TCG: 'yes'
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          cores: ${{ matrix.cores }}
+          ram-size: ${{ matrix.ram }}
+          apk-path: app/build/outputs/apk/debug/app-debug.apk
+          disable-animations: false
+          emulator-boot-timeout: 1800
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none
+          script: bash scripts/glass-perf.sh "${{ matrix.profile }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hmxharness-glass-perf-${{ matrix.profile }}
+          path: |
+            perf/**
+            logs/**
+          if-no-files-found: warn
+          retention-days: 90
