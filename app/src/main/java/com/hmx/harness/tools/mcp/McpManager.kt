@@ -48,10 +48,14 @@ class McpManager(
 
     private val _configTampered = MutableStateFlow(false)
     /**
-     * True when mcp-servers.json failed its integrity check (edited out-of-band
-     * or corrupted) and its contents were refused. Re-saving any server clears it.
+     * True when mcp-servers.json could not be authenticated or decrypted. The
+     * file is kept on disk for recovery and its contents are refused. A
+     * successful app-side save clears this state.
      */
     val configTampered: StateFlow<Boolean> = _configTampered
+    /** Non-secret explanation of the last refusal, for display in Settings. */
+    private val _configError = MutableStateFlow<String?>(null)
+    val configError: StateFlow<String?> = _configError
 
     private val _servers = MutableStateFlow<List<McpServerConfig>>(loadServers())
     val servers: StateFlow<List<McpServerConfig>> = _servers
@@ -115,73 +119,65 @@ class McpManager(
 
     private fun loadServers(): List<McpServerConfig> {
         if (!storeFile.exists()) return emptyList()
-        val text = runCatching { storeFile.readText() }.getOrNull() ?: return emptyList()
-        val parsed = runCatching { json.decodeFromString<List<McpServerConfig>>(text) }.getOrNull()
-        // Integrity: the .hmac sidecar is written only by the app alongside each
-        // save. A mismatch means the file was edited out-of-band or corrupted,
-        // refuse the contents loudly instead of spawning whatever it now defines.
-        val expected = computeConfigHmac(text.toByteArray())
-        val stored = runCatching { configHmacFile().readText().trim() }.getOrNull()
-        if (expected != null && stored != null && stored != expected) {
-            runCatching {
-                storeFile.delete()
-                configHmacFile().delete()
+        val bytes = runCatching { storeFile.readBytes() }.getOrNull()
+            ?: return refuseConfig("MCP configuration could not be read. Its contents were ignored; nothing was deleted.")
+        val text: String
+        if (McpConfigCrypto.isEncrypted(bytes)) {
+            text = runCatching { McpConfigCrypto.decrypt(bytes).toString(Charsets.UTF_8) }.getOrNull()
+                ?: return refuseConfig("MCP configuration could not be verified or decrypted. Its contents were ignored; nothing was deleted.")
+        } else {
+            // One-time atomic migration of the legacy plaintext format. The
+            // plaintext is only replaced after the encrypted copy is complete.
+            val legacy = runCatching { bytes.toString(Charsets.UTF_8) }.getOrNull()
+                ?: return refuseConfig("MCP configuration is unreadable. Its contents were ignored; nothing was deleted.")
+            if (runCatching { json.decodeFromString<List<McpServerConfig>>(legacy) }.getOrNull() == null) {
+                return refuseConfig("MCP configuration is invalid. Its contents were ignored; nothing was deleted.")
             }
-            _configTampered.value = true
-            return emptyList()
+            val sealed = runCatching { McpConfigCrypto.encrypt(bytes) }.getOrNull()
+                ?: return refuseConfig("MCP configuration could not be protected with the Android Keystore. Its contents were ignored; nothing was deleted.")
+            if (!writeConfig(sealed)) {
+                return refuseConfig("MCP configuration migration could not be completed. Its contents were ignored; nothing was deleted.")
+            }
+            // The old HMAC sidecar belongs to the superseded format.
+            runCatching { File(storeFile.parentFile, storeFile.name + ".hmac").delete() }
+            text = legacy
         }
-        if (expected != null && stored == null) {
-            // First launch after this change existed: adopt the current file.
-            runCatching { configHmacFile().writeText(expected) }
-        }
-        return parsed ?: emptyList()
+        val parsed = runCatching { json.decodeFromString<List<McpServerConfig>>(text) }.getOrNull()
+            ?: return refuseConfig("MCP configuration is invalid. Its contents were ignored; nothing was deleted.")
+        _configTampered.value = false
+        _configError.value = null
+        return parsed
     }
 
+    /** Fail closed: keep the file for recovery, never silently re-sign unverified data. */
+    private fun refuseConfig(message: String): List<McpServerConfig> {
+        _configTampered.value = true
+        _configError.value = message
+        return emptyList()
+    }
+
+    /** Atomic replace. On any failure the previous file stays untouched. */
+    private fun writeConfig(sealed: ByteArray): Boolean = runCatching {
+        val tmp = File(storeFile.parentFile, storeFile.name + ".tmp")
+        tmp.writeBytes(sealed)
+        if (!tmp.renameTo(storeFile)) throw java.io.IOException("Could not replace MCP configuration.")
+        true
+    }.getOrDefault(false)
+
     private suspend fun persist(list: List<McpServerConfig>) {
+        // Encrypt first: if the Keystore is unavailable we must not replace a
+        // readable configuration with an unverifiable one.
+        val sealed = McpConfigCrypto.encrypt(json.encodeToString(list).toByteArray(Charsets.UTF_8))
         _servers.value.filter { previous -> list.none { it == previous } }.forEach { disconnect(it.name) }
         _servers.value = list
         ioLock.withLock {
             withContext(Dispatchers.IO) {
-                runCatching {
-                    val tmp = File(storeFile.parentFile, storeFile.name + ".tmp")
-                    tmp.writeText(json.encodeToString(list))
-                    tmp.renameTo(storeFile)
-                    computeConfigHmac(storeFile.readBytes())?.let {
-                        configHmacFile().writeText(it)
-                    }
-                }
+                check(writeConfig(sealed)) { "Could not save MCP configuration." }
             }
         }
-        // An app-side save re-establishes integrity after any tamper refusal.
         _configTampered.value = false
+        _configError.value = null
     }
-
-    private fun configHmacFile() = File(storeFile.parentFile, storeFile.name + ".hmac")
-
-    /**
-     * HMAC-SHA256 over the config bytes, keyed by a non-exportable AndroidKeyStore
-     * key. Null when Keystore is unavailable, verification then degrades to
-     * accept, never to bricking the server list.
-     */
-    private fun computeConfigHmac(data: ByteArray): String? = runCatching {
-        val key = runCatching {
-            val ks = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            (ks.getKey("mcp_config_hmac", null) as? javax.crypto.SecretKey) ?: run {
-                val gen = javax.crypto.KeyGenerator.getInstance("HmacSHA256", "AndroidKeyStore")
-                gen.init(
-                    android.security.keystore.KeyGenParameterSpec.Builder(
-                        "mcp_config_hmac",
-                        android.security.keystore.KeyProperties.PURPOSE_SIGN or
-                            android.security.keystore.KeyProperties.PURPOSE_VERIFY,
-                    ).setDigests(android.security.keystore.KeyProperties.DIGEST_SHA256).build(),
-                )
-                gen.generateKey()
-            }
-        }.getOrNull() ?: return@runCatching null
-        val mac = javax.crypto.Mac.getInstance("HmacSHA256")
-        mac.init(key)
-        android.util.Base64.encodeToString(mac.doFinal(data), android.util.Base64.NO_WRAP)
-    }.getOrNull()
 
     suspend fun importDisabledServers(configs: List<McpServerConfig>) = ioLock.withLock {
         withContext(Dispatchers.IO) {
@@ -194,20 +190,11 @@ class McpManager(
                 config.copy(name = name, enabled = false)
             }
             val list = _servers.value + imported
-            val bytes = json.encodeToString(list).toByteArray(Charsets.UTF_8)
-            val signature = computeConfigHmac(bytes) ?: error("Cannot protect restored MCP configuration.")
-            val atomic = android.util.AtomicFile(storeFile)
-            val stream = atomic.startWrite()
-            try {
-                stream.write(bytes)
-                atomic.finishWrite(stream)
-            } catch (e: Exception) {
-                atomic.failWrite(stream)
-                throw e
-            }
-            configHmacFile().writeText(signature)
+            val bytes = McpConfigCrypto.encrypt(json.encodeToString(list).toByteArray(Charsets.UTF_8))
+            check(writeConfig(bytes)) { "Could not save restored MCP configuration." }
             _servers.value = list
             _configTampered.value = false
+            _configError.value = null
         }
     }
 

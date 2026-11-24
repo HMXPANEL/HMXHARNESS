@@ -209,6 +209,7 @@ object ProviderFactory {
     val json: Json = Json { ignoreUnknownKeys = true }
 
     private val client = OkHttpClient.Builder()
+        .addNetworkInterceptor(com.hmx.harness.network.RemoteUrlPolicy.secureTransportInterceptor)
         // Network interceptor, not application interceptor: only here does the
         // request already carry Host, Content-Length, Content-Type, User-Agent and
         // Accept-Encoding, which is exactly where compatibility bugs live.

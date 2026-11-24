@@ -14,6 +14,7 @@ import com.hmx.harness.llm.ProviderKeyPool
 import com.hmx.harness.llm.ProviderConfig
 import com.hmx.harness.llm.ProviderType
 import com.hmx.harness.llm.effectiveApiKey
+import com.hmx.harness.network.RemoteUrlPolicy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -246,11 +247,13 @@ class ProviderRepository(
     suspend fun add(name: String, type: ProviderType, baseUrl: String, model: String, apiKeys: ProviderKeyPool,
         headers: List<com.hmx.harness.llm.ProviderHeader> = emptyList()): ProviderConfig {
         require(apiKeys.error() == null) { apiKeys.error().orEmpty() }
+        val resolvedBaseUrl = baseUrl.ifBlank { type.defaultBaseUrl }
+        if (!resolvedBaseUrl.startsWith("local://")) RemoteUrlPolicy.validate(resolvedBaseUrl, "Provider")
         val config = ProviderConfig(
             id = UUID.randomUUID().toString(),
             name = name,
             type = type,
-            baseUrl = baseUrl.ifBlank { type.defaultBaseUrl },
+            baseUrl = resolvedBaseUrl,
             model = model,
             headers = com.hmx.harness.llm.ProviderHeaders.normalized(headers),
         )
@@ -273,6 +276,7 @@ class ProviderRepository(
         automaticCatalogChecks.keys.removeIf { it.id == config.id }
         if (com.hmx.harness.chatgpt.ChatGptProtocol.isProvider(config.id)) return
         if (com.hmx.harness.local.LocalModelCatalog.isLocal(config.id)) return
+        if (!config.baseUrl.startsWith("local://")) RemoteUrlPolicy.validate(config.baseUrl, "Provider")
         if (config.id == HarnessProvider.ID) {
             val custom = customModels(HarnessProvider.ID).map { it.id }.toSet()
             save(current().map { if (it.id == config.id) HarnessProvider.config.copy(model = HarnessProvider.sanitize(config.model, custom)) else it })
