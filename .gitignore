@@ -40,6 +40,7 @@ docs/*
 !docs/harness.schema.json
 !docs/audits/
 !docs/expo/
+!docs/security/
 screenshots/
 mock-server.js
 README.full.md
