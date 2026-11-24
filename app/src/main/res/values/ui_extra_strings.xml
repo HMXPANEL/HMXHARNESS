@@ -350,6 +350,8 @@
     <string name="sync_discard_preview">Discard preview</string>
     <string name="sync_remove_connection">Remove this connection?</string>
     <string name="transfer_ftp_plaintext">FTP sends passwords and files without encryption. Use it only on a trusted network; choose SFTP for encrypted sync.</string>
+    <string name="transfer_ftp_regenerate_password">Generate new password</string>
+    <string name="transfer_ftp_lan_warning">LAN mode exposes this share to other devices. FTP is unencrypted: anyone on the network can capture the password and files. Use SFTP for encrypted sharing.</string>
     <string name="sync_sftp_hint">SFTP encrypts transfers and checks the saved SSH host key.</string>
     <string name="transfer_connection_name">Connection name</string>
     <string name="transfer_host">Host</string>
