@@ -45,7 +45,7 @@ class BackupEncryptionTest {
     }
 
     @Test fun twelveCharacterPasswordRoundTrip() {
-        val secret = "exactly-12!".toCharArray()
+        val secret = "exactly-12!!".toCharArray()
         val encrypted = BackupEncryption.encrypt(byteArrayOf(1, 2, 3), secret)
         assertArrayEquals(byteArrayOf(1, 2, 3), BackupEncryption.decrypt(encrypted, secret))
     }
