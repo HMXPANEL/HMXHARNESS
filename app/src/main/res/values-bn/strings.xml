@@ -979,7 +979,7 @@
     <string name="dhizuku_denied">"অ্যাক্সেস অস্বীকৃত · ধিজুকুতে অ্যাক্সেস মঞ্জুর করুন"</string>
     <string name="dhizuku_error">"সংযোগ ব্যর্থ হয়েছে · ধিজুকু চেক করুন এবং আবার চেষ্টা করুন"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"AHarness গ্লাস (পরীক্ষামূলক)"</string>
+    <string name="glass_title">"HMXHARNESS গ্লাস (পরীক্ষামূলক)"</string>
     <string name="glass_description">"নেভিগেশন, নিয়ন্ত্রণ, এবং কার্ডের জন্য গ্লাস প্রভাব।"</string>
     <string name="glass_enable">"হিমায়িত গ্লাস"</string>
     <string name="glass_enable_hint">"নরমভাবে ঝাপসা ব্যাকগ্রাউন্ড সহ স্বচ্ছ পৃষ্ঠতল ব্যবহার করুন।"</string>

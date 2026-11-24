@@ -978,7 +978,7 @@
     <string name="dhizuku_denied">"액세스가 거부됨 · Dhizuku에 액세스 권한 부여"</string>
     <string name="dhizuku_error">"연결 실패 · Dhizuku를 확인하고 다시 시도하세요"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"A하네스 글래스(실험단계)"</string>
+    <string name="glass_title">"HMXHARNESS 글래스(실험단계)"</string>
     <string name="glass_description">"탐색, 컨트롤, 카드에 유리 효과를 적용합니다."</string>
     <string name="glass_enable">"젖빛 유리"</string>
     <string name="glass_enable_hint">"배경이 부드럽게 흐려진 반투명 표면을 사용하세요."</string>

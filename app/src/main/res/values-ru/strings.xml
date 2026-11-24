@@ -972,7 +972,7 @@
     <string name="dhizuku_denied">Доступ запрещён · разрешите доступ в Dhizuku</string>
     <string name="dhizuku_error">Ошибка подключения · проверьте Dhizuku и повторите попытку</string>
     <string name="settings_language_sinhala">සිංහල</string>
-    <string name="glass_title">AHarness Glass (экспериментально)</string>
+    <string name="glass_title">HMXHARNESS Glass (экспериментально)</string>
     <string name="glass_description">Стеклянные эффекты для навигации, элементов управления и карточек.</string>
     <string name="glass_enable">Матовое стекло</string>
     <string name="glass_enable_hint">Полупрозрачные поверхности с мягко размытым фоном.</string>

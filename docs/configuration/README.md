@@ -1,4 +1,4 @@
-# Workspace configuration on Android
+# HMXHARNESS — Workspace configuration on Android
 
 HMXHARNESS reads optional `harness.json` (strict JSON) or `harness.jsonc` (comments and trailing commas) at the start of each **Code** run. Personal Chat agents remain managed by Chat settings. No config preserves existing behavior. Configuration discovery, validation, instructions, references and skills do not require Linux.
 

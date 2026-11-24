@@ -978,7 +978,7 @@
     <string name="dhizuku_denied">"Akses ditolak · berikan akses dalam Dhizuku"</string>
     <string name="dhizuku_error">"Sambungan gagal · semak Dhizuku dan cuba lagi"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"Kaca Aharness (Percubaan)"</string>
+    <string name="glass_title">"Kaca HMXHARNESS (Percubaan)"</string>
     <string name="glass_description">"Kesan kaca untuk navigasi, kawalan dan kad."</string>
     <string name="glass_enable">"Kaca berbuih"</string>
     <string name="glass_enable_hint">"Gunakan permukaan lut sinar dengan latar belakang kabur lembut."</string>

@@ -979,7 +979,7 @@
     <string name="dhizuku_denied">"Tinanggihan ang access · bigyan ng access sa Dhizuku"</string>
     <string name="dhizuku_error">"Nabigo ang koneksyon · suriin ang Dhizuku at subukang muli"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"AHarness Glass (Eksperimento)"</string>
+    <string name="glass_title">"HMXHARNESS Glass (Eksperimento)"</string>
     <string name="glass_description">"Mga glass effect para sa nabigasyon, mga kontrol, at mga card."</string>
     <string name="glass_enable">"Nagyeyelong baso"</string>
     <string name="glass_enable_hint">"Gumamit ng mga translucent na ibabaw na may mahinang blur na background."</string>

@@ -1072,7 +1072,7 @@
     <string name="dhizuku_denied">Access denied · grant access in Dhizuku</string>
     <string name="dhizuku_error">Connection failed · check Dhizuku and try again</string>
     <string name="settings_language_sinhala">සිංහල</string>
-    <string name="glass_title">AHarness Glass (Experimental)</string>
+    <string name="glass_title">HMXHARNESS Glass (Experimental)</string>
     <string name="glass_description">Glass effects for navigation, controls, and cards.</string>
     <string name="glass_enable">Frosted glass</string>
     <string name="glass_enable_hint">Use translucent surfaces with softly blurred backgrounds.</string>

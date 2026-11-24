@@ -1,95 +1,112 @@
-# HMXHARNESS — Custom-Built Components
+# HMXHARNESS — Custom-Built Components and Provenance
 
-> Classification:
-> **A** = developed from scratch · **B** = custom implementation on third-party
-> libraries · **C** = third-party integration · **D** = standard framework
-> functionality.
+> Paths are relative to `app/src/main/java/com/hmx/harness/` unless stated
+> otherwise. This document separates **HMXHARNESS additions**, **inherited
+> upstream AndroidHarness code**, **adapted/vendored components** and
+> **third-party libraries**. HMXHARNESS is an MIT-licensed derivative of
+> AndroidHarness by Sanuu7; `LICENSE` preserves `Copyright (c) 2026 Sanuu7`.
 >
-> **Author origin** is essential for honesty. This repository is a derivative of
-> AndroidHarness (MIT). "Upstream" means the component was preserved/adapted from
-> AndroidHarness; "HMX" means it was added or substantially rewritten in this
-> project's history. Do not present upstream modules as HMX-original work.
+> **Provenance nuance:** explicit per-file upstream attribution headers are
+> rare in this tree. Do not claim "all engine code is upstream" or "all code is
+> HMX-original". Provenance is established at component level through the
+> README attribution section, license notices, and the few files that carry
+> explicit adaptation notes. The current repository is a fresh migration; old
+> Git history is absent and no historical commit hashes are cited here.
 
-## 1. HMX-original components (added in this project's history)
+## Classification key
 
-| Component | Files | Class | Origin | What it does | Communicates with |
-|---|---|---|---|---|---|
-| Liquid Glass material system | `ui/liquidglass/GlassTokens.kt`, `LiquidGlassPalette.kt`, `LiquidGlassComponents.kt`, `LiquidGlassModifiers.kt`, `GlassQuality.kt` | tokens, `profileFor`, `detectGlassTier`, `LocalHmxGlassBackdrop`, `hmxGlass` modifiers | **HMX (B)** on PrismalAGSL/Backdrop | Defines the app-wide glass tokens and three quality tiers (`LOW/MID/HIGH`), then renders glass via PrismalAGSL backdrop blur/refraction; components share one ambient backdrop. | `ui/theme/Theme.kt`, every Compose screen |
-| GitHub Device Flow **connection card** | `ui/settings/ConnectedAccountsSection.kt` (new, 183 lines); `github/GitHubAuth.kt` (modified, +48/−14) | `ConnectedAccountsSection` | **HMX (A)** UI on **upstream** auth | Shows the device code, verification URL, busy/polling state and PAT fallback inside Settings, and exposes auth state to Compose. **The flow itself is upstream** (see §2). | `GitHubAuth`, `KeyStoreManager`, `ui/settings/` |
-| HMX verification gate | `hmx/HmxTaskVerification.kt` | `HmxTaskVerification`, `HmxVerificationLevel` | **HMX (A)** | Converts recorded checks into `VERIFIED/UNVERIFIED/FAILED/STALE/NO_CHECKS` and decides whether completion may be claimed. | `agent/VerificationEvidence.kt`, `ui/chat/components/VerificationCard.kt` |
-| HMX hybrid approval policy | `hmx/HmxTaskVerification.kt` | `HmxApprovalPolicy`, `HmxRisk` | **HMX (A)** | Classifies shell commands as `SAFE / APPROVAL_REQUIRED / PROHIBITED` using regex rules. | `AgentEngine` permission flow (used alongside upstream policy) |
-| Cloud CI/CD | `.github/workflows/android-ci.yml`, `android-release.yml`, `android-visual-qa.yml`, `lint-baseline.yml` | — | **HMX (A)** | Tests, lint, debug/release APKs, artifact upload, Client ID injection, emulator visual QA and glass performance matrices (the earlier separate glass QA/perf workflows were consolidated into `android-visual-qa.yml` in `53987768`). | GitHub Actions |
-| Lint baseline infrastructure | `app/lint-baseline.xml`, `.github/workflows/lint-baseline.yml` | — | **HMX (A)** | Freezes inherited lint findings so new regressions fail CI. | Android lint |
-| Rebrand / identity | `app/build.gradle.kts`, `AndroidManifest.xml`, 734 renamed/edited Kotlin files, `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, issue templates | — | **HMX (A)** | `com.hmx.harness` identity, deep-link scheme, removal of Donate/Discord UI, rewritten open-source docs. | Whole app |
-| Two added translatable strings | `app/src/main/res/values-*/strings.xml` | — | **HMX (A)** | Added the GitHub Device Flow card strings across all locales. **The 21 locales themselves are upstream** (`6243c2c7`, `dc3e4e57`). | Settings |
-| Expo/audit documentation | `docs/`, `docs/audits/`, `docs/expo/` | — | **HMX (A)** | Technical/security/build/audit reports. | — |
+- **A** — original code written for this project.
+- **B** — custom implementation built on third-party libraries.
+- **C** — third-party integration or adapted/vendored component.
+- **D** — standard Android framework functionality configured by the app.
 
-## 2. Inherited upstream engine (preserved, not HMX-authored)
+## 1. HMXHARNESS additions
 
-These are core to the app but originate from AndroidHarness. Present them as
-"the agent engine used by the app", not as newly invented technology.
-
-| Component | Files | Class | Classification | What it does |
+| Component | Files | Origin | What it does | Communicates with |
 |---|---|---|---|---|
-| Agent loop / run manager | `agent/AgentEngine.kt`, `agent/RunManager.kt` | `AgentEngine`, `RunManager` | B (custom app code) | Multi-round model→tool→result loop, budgets, retries, compaction, events. |
-| Context policy / compaction | `agent/ChatContextPolicy.kt`, `AutoCompaction.kt`, `HistoryCompactor.kt`, `ContextHygiene.kt`, `ContextOverflow.kt` | — | A/B | Token budgeting, auto-compaction, image stripping, overflow recovery. |
-| Subagents | `agent/SubagentRuns.kt`, `SubagentConfiguration.kt`, `SubagentModelResolver.kt`; `AgentEngine.runSubagent` | `SubagentRuns` | B | `task` tool spawns read-only or action subagents, runs batches concurrently, folds results back. |
-| Verification evidence | `agent/VerificationEvidence.kt` | `VerificationEvidence`, `CheckStatus` | A | Recognizes build/test/lint shell commands and marks stale after edits. |
-| GitHub Device Flow auth | `github/GitHubAuth.kt` (`startSignIn`, device-code polling) | `GitHubAuth`, `GitHubDeviceCode`, `GitHubCredential` | A (upstream) | Requests a device code, polls `/login/oauth/access_token` handling `authorization_pending`/`slow_down`/`expired_token`, refreshes via `offline_access`, PAT fallback. **Introduced upstream in `2207914579` (2026-10-09), before the rebrand.** |
-| GitHub repos / PRs | `github/GitHubRepository.kt`, `GitHubPullRequests.kt`, `GitChangeTree.kt` | — | A (upstream) | Repository import, change tree, PR publishing. |
-| 21-language localization | `app/src/main/res/values-*` | — | A (upstream) | 21 `values-*` locales added upstream on 2026-11-19 (`6243c2c7`, `dc3e4e57`). |
-| Steering / queue / questions | `agent/Steering.kt`, `QuestionAutoContinue.kt`, `AskUserOptions.kt` | — | A | Inject messages between rounds, queue follow-ups, staged question cards. |
-| Memory | `data/MemoryRepository.kt`, `agent/MemoryNotes.kt`, `MemoryTopics.kt` | `MemoryRepository` | B (Room) | Global/project/chat memory with scopes, categories, pinning, search. |
-| Streaming retry / failover | `agent/StreamRetrier.kt`, `RetryPolicy.kt`, `llm/FallbackProvider.kt`, `FallbackPolicy.kt`, `RotatingKeyProvider.kt` | — | A/B | Retry transient failures, fail over between providers/keys. |
-| Skills | `skills/SkillStore.kt`, `SkillParser.kt`, `SkillVariables.kt` | `SkillStore` | A | Load `SKILL.md` definitions, variables and assets. |
-| Repo map / CodeGraph | `repomap/RepoMapGenerator.kt`, `RepoSymbolExtractor.kt`; `data/env/CodeGraphManager.kt`, `CodeGraphMcp.kt` | `RepoMapCache`, `CodeGraphManager` | B/C | Offline symbol map and CodeGraph CLI/MCP integration. |
-| Cave-man reply modes | `caveman/CavemanPolicy.kt` | `CavemanPolicy`, `CavemanIntensity` | A | Terse reply styles applied to system prompts. |
-| Live Mode | `agent/LiveMode.kt` | `LiveMode`, `LiveModeAccess` | A | Voice conversation mode with tool access levels. |
-| Plugin hooks | `config/PluginHooks.kt`, `config/HarnessConfig.kt` | `ConfigPlugin`, `ConfigCommandHook` | A/B | Command/prompt hooks on run events. |
+| Liquid Glass material system | `ui/liquidglass/GlassTokens.kt`, `LiquidGlassPalette.kt`, `LiquidGlassComponents.kt`, `LiquidGlassModifiers.kt`, `GlassQuality.kt` | **HMX (B)** on PrismalAGSL + kyant0 Backdrop | App-wide glass tokens, three quality tiers (`LOW/MID/HIGH`, `detectGlassTier`, `profileFor`) and wrappers used by Compose screens. Rendering primitives are third-party, not HMX-authored. | `ui/theme/Theme.kt`, Compose screens |
+| HMX verification verdict object | `hmx/HmxTaskVerification.kt` (`HmxVerificationLevel`, `HmxTaskVerification.assess`) | **HMX (A)** | Converts recorded checks into `VERIFIED / UNVERIFIED / FAILED / STALE / NO_CHECKS` **for display** in chat. The comment at `:9` acknowledges that upstream already recorded build/test/lint results. | `agent/VerificationEvidence.kt`, `ui/chat/components/VerificationCard.kt` |
+| HMX approval policy objects (test-only) | `hmx/HmxTaskVerification.kt` (`HmxApprovalPolicy`, `HmxRisk`, `canClaimCompletion()` at `:47`) | **HMX (A)** | Defines `SAFE / APPROVAL_REQUIRED / PROHIBITED` rules and a completion predicate. **Referenced only by `app/src/test/java/com/hmx/harness/hmx/HmxTaskVerificationTest.kt`; no runtime caller exists.** Not wired into the agent loop — see §6. | unit tests only |
+| GitHub Connected Accounts card | `ui/settings/ConnectedAccountsSection.kt` | **HMX (A)** UI over **upstream** `github/GitHubAuth.kt` | Shows device code, verification URL, busy/polling state and PAT fallback in Settings. The Device Flow implementation itself is upstream. | `GitHubAuth`, `data/KeyStoreManager.kt` |
+| Cloud CI configuration | `.github/workflows/android-ci.yml`, `android-release.yml`, `android-visual-qa.yml`, `lint-baseline.yml` | **HMX (A)** | Unit tests, lint, debug + release APKs, APK verification, artifact upload, visual-QA screenshots. Current green run: `45338701934`; artifact `hmxharness-apks` id `14898111209` (110,461,001 bytes). | GitHub Actions |
+| Lint baseline infrastructure | `app/lint-baseline.xml`, `.github/workflows/lint-baseline.yml` | **HMX (A)** | Freezes inherited lint findings so new regressions are visible; `lintDebug` passes in CI. | Android lint |
+| Project identity and docs | `app/build.gradle.kts`, `AndroidManifest.xml`, `README.md`, `LICENSE`, `SECURITY.md`, `PRIVACY.md`, issue/PR templates, `docs/expo/` | **HMX (A)** | `com.hmx.harness` identity, deep-link scheme, honest upstream attribution and Expo-ready documentation. | whole repository |
 
-## 3. Tools (custom app modules)
+**Important limitation.** The HMX verification and approval objects are often
+described as a "gate", but only `HmxTaskVerification.assess()` is used at
+runtime, and only to render a card. `canClaimCompletion()` and
+`HmxApprovalPolicy` are unit-tested but unused by `agent/AgentEngine.kt`. Real
+approval is implemented by `PermissionMode` (`agent/AgentEngine.kt:42`),
+`RunManager.approve/deny` (`agent/RunManager.kt:1122`, `:1128`) with notification
+actions, and the denylist/containment checks in `tools/ShellPolicy.kt` and
+`workspace/WorkspaceFs.kt`.
 
-The registry is assembled in `tools/Tool.kt` (`ToolRegistry.default`). It
-declares ~83 tool entries including conditional browser/MCP/automation tools.
-Key groups:
+## 2. Inherited upstream AndroidHarness components
+
+These are core to the app but were inherited from the MIT-licensed upstream
+project. Present them as "the agent engine used by the app", not as newly
+invented HMX technology.
+
+| Component | Files | What it does |
+|---|---|---|
+| Agent loop / run manager | `agent/AgentEngine.kt`, `agent/RunManager.kt` | Multi-round model → tool → result loop (`AgentEngine.kt:463`), budgets, retries, compaction, events, approval state. |
+| Context policy / compaction | `agent/ChatContextPolicy.kt`, `AutoCompaction.kt`, `HistoryCompactor.kt`, `ContextHygiene.kt`, `ContextOverflow.kt` | Token budgeting, auto-compaction and overflow recovery. |
+| Verification evidence | `agent/VerificationEvidence.kt` (`CheckStatus`, `VerificationEvidence.collect`) | Recognises build/test/lint shell results (`PASSED / FAILED / UNKNOWN`) and marks earlier passes `STALE` after edits. |
+| Subagents | `agent/SubagentRuns.kt`, `SubagentConfiguration.kt`, `SubagentModelResolver.kt`, `AgentEngine.runSubagent` | `task` tool spawns read-only or action subagents and folds results back. |
+| Steering / queue / questions | `agent/Steering.kt`, `QuestionAutoContinue.kt`, `agent/AskUserOptions.kt` | Inject messages between rounds, queue follow-ups and staged question cards. |
+| GitHub Device Flow | `github/GitHubAuth.kt` (`startSignIn`, device-code polling, `offline_access` refresh, PAT fallback) | OAuth App Device Flow: `/login/device/code` → poll `/login/oauth/access_token` with `authorization_pending` / `slow_down` / `expired_token` handling. |
+| GitHub repos / PRs | `github/GitHubRepository.kt`, `GitHubPullRequests.kt`, `GitChangeTree.kt` | Repository import, change trees and PR publishing. |
+| Memory | `data/MemoryRepository.kt`, `agent/MemoryNotes.kt`, `MemoryTopics.kt` | Scoped memory with categories, pinning and search. |
+| Streaming retry / failover | `agent/StreamRetrier.kt`, `RetryPolicy.kt`, `llm/FallbackProvider.kt`, `FallbackPolicy.kt`, `RotatingKeyProvider.kt` | Retry transient failures and fail over between providers/keys. |
+| Skills / Live Mode / reply styles | `skills/SkillStore.kt`, `agent/LiveMode.kt`, `caveman/CavemanPolicy.kt` | `SKILL.md` loading, voice conversation mode, terse reply styles. |
+| Localization | `app/src/main/res/values-*` (21 locales) and base `values/` with 1,129 strings | Translated UI; the locales are inherited upstream, not HMX translations. |
+
+## 3. Adapted and vendored components
+
+| Component | Files | Origin note |
+|---|---|---|
+| ADB transport | `data/env/adb/AdbClient.kt`, `AdbKey.kt`, `AdbMdns.kt`, `AdbPairingClient.kt`, `PairingContext.kt` | Files state "Adapted from Shizuku (Apache 2.0)"; preserve that notice. |
+| CodeGraph | `data/env/CodeGraphManager.kt`, `data/env/CodeGraphMcp.kt`, `data/env/CodeGraphPatches.kt` | Vendored CodeGraph release with HMX-authored idempotent patches (`CodeGraphBundlePatches.VERSION = 12`) applied to the extracted bundle. |
+| Caveman skill | `caveman/CavemanPolicy.kt`, `app/src/main/assets/licenses/caveman.txt` | Reply rules and skills adapted from Julius Brussee's MIT-licensed caveman project; its copyright notice is preserved in the asset. |
+| Native inference | `app/src/main/cpp/CMakeLists.txt`, `local_model.cpp` | llama.cpp is fetched at build time, not written by this project. |
+
+## 4. Tool registry (custom app modules)
+
+The registry is assembled in `tools/Tool.kt` (`ToolRegistry.default`) with roughly
+80 entries, including conditional browser/MCP/automation tools.
 
 | Group | Files | Examples | Origin |
 |---|---|---|---|
-| Files | `FileTools.kt`, `PatchTools.kt`, `FuzzyEdit.kt`, `FileHistoryTools.kt` | `read_file`, `write_file`, `edit_file`, `apply_patch`, `search_files`, `grep`, `file_history` | Upstream + HMX additions |
-| Shell | `ShellTool.kt`, `BgShell.kt`, `ShellPolicy.kt` | `shell`, `shell_background`, `bg_list` | Upstream |
-| Git | `GitTools.kt` | `git_status`, `git_diff`, `git_commit`, `git_push`, `git_pull` | Upstream |
-| GitHub | `GitHubTools.kt`, `GitHubPullRequestTool.kt` | repos, issues, PRs, commits | Upstream/HMX |
-| Browser | `BrowserTools.kt` (14 tools) | `browser_navigate`, `browser_click`, `browser_eval` | Upstream |
-| Web research | `SearchBackends.kt`, `SearchProviders.kt`, `TavilyPageReader.kt`, `WebSearchText.kt` | `web_search`, `web_fetch` | Upstream |
-| Memory / chat recall | `MemoryTools.kt`, `UniversalMemoryTools.kt`, `ChatRecallTools.kt` | `remember`, `recall`, `search_chats` | Upstream |
-| CodeGraph | `CodeGraphTools.kt` | `codegraph_explore`, `codegraph_impact` | Upstream |
-| Settings / plugins | `AppSettingsTools.kt`, `AppPluginsTool.kt` | `app_settings_find/change`, plugin management | Upstream |
-| Automation / reminders | `AutomationTools.kt`, `ReminderTools.kt` | `automation_create/list/manage` | Upstream |
-| Subagents | `SubagentTools.kt`, `SubagentControlTools.kt` | `task` | Upstream |
-| MCP | `tools/mcp/McpToolAdapter.kt` | dynamic tools | Upstream |
+| Files | `tools/FileTools.kt`, `PatchTools.kt`, `FuzzyEdit.kt`, `FileHistoryTools.kt` | `read_file`, `write_file`, `edit_file`, `apply_patch`, `search_files`, `grep` | Upstream core, HMX additions |
+| Shell | `tools/ShellTool.kt`, `BgShell.kt`, `ShellPolicy.kt` | `shell`, `shell_background`, `bg_list` | Upstream |
+| Git / GitHub | `tools/GitTools.kt`, `GitHubTools.kt`, `GitHubPullRequestTool.kt` | status, diff, commit, push, repos, issues, PRs | Upstream + HMX additions |
+| Browser | `tools/BrowserTools.kt` | `browser_navigate`, `browser_click`, `browser_eval` | Upstream |
+| Web research | `tools/SearchProviders.kt`, `SearchBackends.kt`, `TavilyPageReader.kt`, `WebSearchText.kt` | `web_search`, `web_fetch` | Upstream |
+| Memory / chat recall | `tools/MemoryTools.kt`, `UniversalMemoryTools.kt`, `ChatRecallTools.kt` | `remember`, `recall`, `search_chats` | Upstream |
+| CodeGraph | `tools/CodeGraphTools.kt` | `codegraph_explore`, `codegraph_impact` | Vendored + HMX patches |
+| Settings / plugins | `tools/AppSettingsTools.kt`, `AppPluginsTool.kt` | app settings find/change, plugin management | Upstream |
+| Automation / reminders | `tools/AutomationTools.kt`, `ReminderTools.kt` | `automation_create/list/manage` | Upstream |
+| Subagents / MCP | `tools/SubagentTools.kt`, `tools/mcp/McpToolAdapter.kt` | `task`, dynamic MCP tools | Upstream |
 
-## 4. Third-party integrations (C) — do not call these custom
+## 5. Third-party integrations (C) — do not call these custom
 
-| Integration | Library/API | Evidence |
+| Integration | Library / API | Evidence |
 |---|---|---|
-| Model providers | OpenAI/Anthropic/Gemini APIs | `llm/*Provider.kt` |
+| Model providers | OpenAI-compatible, Responses, Anthropic, Gemini APIs | `llm/OpenAiCompatProvider.kt`, `OpenAiResponsesProvider.kt`, `AnthropicProvider.kt`, `GeminiProvider.kt` |
 | Local inference | **llama.cpp** (native) | `app/src/main/cpp/CMakeLists.txt` |
-| Liquid Glass rendering | **PrismalAGSL**, **kyant0 Backdrop** | `libs.versions.toml` |
-| Code editor | **sora-editor** | `libs.versions.toml`, `ui/files/` |
-| Privileged shell | **Shizuku**, **libsu**, **Dhizuku** | `data/env/` |
+| Glass rendering | **PrismalAGSL**, **kyant0 Backdrop** | `gradle/libs.versions.toml`, `ui/liquidglass/LiquidGlassModifiers.kt` |
+| Code editor | **sora-editor** | `gradle/libs.versions.toml`, `ui/files/` |
+| Privileged shell | **Shizuku**, **libsu**, **Dhizuku**, Wireless ADB | `data/env/ShizukuManager.kt`, `RootManager.kt`, `DhizukuManager.kt`, `data/env/adb/` |
 | Web search | Brave, Tavily, Serper, Linkup, Jina, LangSearch, SerpApi, Firecrawl, Marginalia, keyless engines | `tools/SearchProviders.kt` |
 | Voice | Edge TTS, Groq, OpenAI, ElevenLabs, Deepgram, Cartesia, AssemblyAI | `data/audio/` |
-| Telegram | Bot API | `telegram/TelegramBotClient.kt` |
-| 9Router | external node runtime/CLI | `router/` |
-| CodeGraph | external `codegraph` CLI/MCP | `data/env/CodeGraphManager.kt` |
-| SSH | JSch | `app/build.gradle.kts` |
-| Termux packages | Termux repositories | `data/env/LinuxEnvironment.kt` |
+| Telegram | Bot API | `telegram/TelegramBotClient.kt`, `TelegramGateway.kt` |
+| 9Router | external node runtime/CLI | `router/NineRouterManager.kt` |
+| SSH | JSch | `app/build.gradle.kts`, `data/env/` |
 
-## 5. Standard framework functionality (D)
-
-Room, DataStore, WorkManager, Navigation Compose, WebView, Android Keystore,
-BiometricPrompt, NotificationManager, Foreground services, `WebViewAssetLoader`,
-`JavascriptEngine`. These are configured by the app, not reimplemented.
+Standard framework functionality (**D**) — Room, DataStore, WorkManager,
+Navigation Compose, WebView, Android Keystore, BiometricPrompt, notifications,
+foreground services and `WebViewAssetLoader` — is configured by the app, not
+reimplemented.
 
 ## 6. Component communication summary
 
@@ -98,6 +115,7 @@ flowchart LR
     UI[Compose screens] --> VM[ViewModels]
     VM --> AC[AppContainer]
     AC --> AE[AgentEngine]
+    AE --> RM[RunManager approve/deny]
     AE --> TR[ToolRegistry]
     TR --> FT[File/Git/Shell/Browser tools]
     TR --> MCP[MCP tools]
@@ -105,24 +123,37 @@ flowchart LR
     PF --> CLOUD[Cloud providers]
     PF --> LOCAL[LocalModelProvider → JNI]
     AE --> MEM[MemoryRepository]
-    AE --> V[VerificationEvidence → HmxTaskVerification]
+    AE --> VE[VerificationEvidence: STALE]
+    VE --> VC[VerificationCard: HmxTaskVerification.assess]
     AC --> KS[KeyStoreManager]
     AC --> DB[Room]
     AC --> GH[GitHubAuth/Api]
     FT --> WS[WorkspaceFs]
     FT --> SH[ShellTierRouter]
+    HM[HmxApprovalPolicy / canClaimCompletion] -.unit tests only.-> T[app/src/test/.../HmxTaskVerificationTest.kt]
 ```
 
 ## 7. Claims to avoid
 
-- "We built an AI model" — no training code exists; the app uses pre-trained
-  models via APIs or llama.cpp.
-- "We built Shizuku/Termux/llama.cpp/sora-editor" — these are third-party.
-- "The agent engine is entirely our own" — it is preserved upstream code with
-  HMX additions.
-- "We built GitHub Device Flow" — the flow is upstream (`2207914579`); HMX built
-  the Connected Accounts card and the CI Client-ID injection.
-- "We translated the app into 21 languages" — the locales are upstream; HMX
-  added two strings to them.
-- "Liquid Glass is our own GPU renderer" — rendering primitives come from
-  PrismalAGSL; the token/tier system is custom.
+- **"We built an AI model."** No training code exists; models come from provider
+  APIs or llama.cpp.
+- **"We built Shizuku / Termux / llama.cpp / sora-editor / PrismalAGSL."** These
+  are third-party integrations; some ADB files are explicitly adapted from
+  Shizuku (Apache 2.0).
+- **"The agent engine is entirely our own" / "all engine code is upstream."**
+  Provenance is per component; explicit headers are rare.
+- **"We built GitHub Device Flow / translated the app into 21 languages."** Both
+  are inherited upstream; HMX added the Settings card, CI wiring and
+  documentation.
+- **"Liquid Glass is our GPU renderer."** The token/tier system is custom;
+  rendering primitives come from PrismalAGSL and Backdrop.
+- **"Verification/approval is enforced by the HMX gate at runtime."** False:
+  `canClaimCompletion()` and `HmxApprovalPolicy` are test-only; the real gates are
+  `PermissionMode`, `RunManager.approve/deny` and `ShellPolicy`.
+- **"Vulkan GPU inference is shipped and verified."** CPU GGUF is the shipped
+  path; GPU requires `localModelExperimental = true`
+  (`data/SettingsRepository.kt:234`), is decided by
+  `local/LocalAccelerationPolicy.kt`, and is not hardware-verified here.
+- **"Visual correctness is automatically verified."** The instrumented glass
+  screenshot test has no pixel assertions and swallows failures; see
+  `HMXHARNESS_FEATURE_VERIFICATION.md`.

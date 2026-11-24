@@ -1,5 +1,10 @@
 # HMXHARNESS — Branch Consolidation Report
 
+> **Historical document.** This report records work performed in the **previous**
+> repository before the fresh migration. Commit hashes and CI run IDs below are
+> historical and do not exist in the current repository. Current evidence is in
+> `HMXHARNESS_SECOND_FULL_REPOSITORY_AUDIT.md` and the Expo documents.
+
 - **Repository:** https://github.com/HMXPANEL/HMXHARNESS
 - **Default branch:** `main`
 - **Application:** HMXHARNESS (`com.hmx.harness`)
@@ -119,8 +124,7 @@ features that were absent from the branches above.
 - **CI/CD:** `HMX_GITHUB_CLIENT_ID` injected into CI, release, and visual-QA
   workflows from `vars.HMX_GITHUB_CLIENT_ID || secrets.HMX_GITHUB_CLIENT_ID`,
   never printed; `local.properties` → env resolution in `app/build.gradle.kts`.
-- **Docs:** README/CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/CHANGELOG rewrite,
-  `.editorconfig`, PR template.
+- **Docs:** README/SECURITY/CHANGELOG rewrite, `.editorconfig`, PR template.
 - **Resources:** one updated description + two new keys
   (`settings_github_scope_note`, `ui_could_not_copy_code`) across 21 locales.
 - **Build config:** OAuth Client ID resolution and lint baseline settings.
@@ -189,7 +193,7 @@ and CI/CD configuration were not rewritten. Only a fast-forward was performed.
 | `.github/workflows/` | 3 |
 | `app/src/debug` (showcase) | 3 |
 | `scripts/` | 2 |
-| Root (`README`, `CHANGELOG`, `CONTRIBUTING`, `SECURITY`, `CODE_OF_CONDUCT`, `.editorconfig`, `.gitignore`, `PULL_REQUEST_TEMPLATE`) | 9 |
+| Root (`README`, `CHANGELOG`, `SECURITY`, `.editorconfig`, `.gitignore`, `PULL_REQUEST_TEMPLATE`) | 6 |
 
 No `res/` directory contains a non-`.xml` file (except the expected font
 assets), and no `.bak` file is tracked.

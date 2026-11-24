@@ -974,7 +974,7 @@
     <string name="dhizuku_denied">تم رفض الوصول · امنح الإذن في Dhizuku</string>
     <string name="dhizuku_error">فشل الاتصال · تحقق من Dhizuku وحاول مجدداً</string>
     <string name="settings_language_sinhala">සිංහල</string>
-    <string name="glass_title">AHarness Glass (تجريبي)</string>
+    <string name="glass_title">HMXHARNESS Glass (تجريبي)</string>
     <string name="glass_description">تأثيرات زجاجية للتنقل وعناصر التحكم والبطاقات.</string>
     <string name="glass_enable">زجاج مصنفر</string>
     <string name="glass_enable_hint">استخدم أسطحًا شبه شفافة مع خلفيات ضبابية ناعمة.</string>

@@ -979,7 +979,7 @@
     <string name="dhizuku_denied">"அணுகல் மறுக்கப்பட்டது · திசுகுவில் அணுகலை வழங்கவும்"</string>
     <string name="dhizuku_error">"இணைப்பு தோல்வியடைந்தது · திசுகுவைச் சரிபார்த்து மீண்டும் முயலவும்"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"AHarness கண்ணாடி (பரிசோதனை)"</string>
+    <string name="glass_title">"HMXHARNESS கண்ணாடி (பரிசோதனை)"</string>
     <string name="glass_description">"வழிசெலுத்தல், கட்டுப்பாடுகள் மற்றும் அட்டைகளுக்கான கண்ணாடி விளைவுகள்."</string>
     <string name="glass_enable">"உறைந்த கண்ணாடி"</string>
     <string name="glass_enable_hint">"மென்மையான மங்கலான பின்னணியுடன் ஒளிஊடுருவக்கூடிய மேற்பரப்புகளைப் பயன்படுத்தவும்."</string>

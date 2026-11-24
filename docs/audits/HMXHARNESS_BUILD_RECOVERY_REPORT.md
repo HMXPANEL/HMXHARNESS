@@ -1,5 +1,11 @@
 # HMXHARNESS — Build Recovery Report
 
+> **Historical document.** This report records build-recovery work in the
+> **previous** repository. Its commit hashes, CI run IDs and artifact IDs are
+> historical and are not evidence for the current repository. Current CI evidence
+> is run `45338701934` and artifact `14898111209` in
+> `HMXHARNESS_SECOND_FULL_REPOSITORY_AUDIT.md`.
+
 - **Repository:** https://github.com/HMXPANEL/HMXHARNESS
 - **Branch:** `main`
 - **Application:** HMXHARNESS (`com.hmx.harness`)

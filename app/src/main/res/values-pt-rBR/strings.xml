@@ -980,7 +980,7 @@
     <string name="dhizuku_denied">Acesso negado · permita o acesso no Dhizuku</string>
     <string name="dhizuku_error">Falha na conexão · verifique o Dhizuku e tente novamente</string>
     <string name="settings_language_sinhala">සිංහල</string>
-    <string name="glass_title">AHarness Glass (experimental)</string>
+    <string name="glass_title">HMXHARNESS Glass (experimental)</string>
     <string name="glass_description">Efeitos de vidro para navegação, controles e cartões.</string>
     <string name="glass_enable">Vidro fosco</string>
     <string name="glass_enable_hint">Use superfícies translúcidas com fundos suavemente desfocados.</string>

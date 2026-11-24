@@ -969,7 +969,7 @@
     <string name="dhizuku_denied">"訪問被拒絕 · 請在 Dhizuku 中授權"</string>
     <string name="dhizuku_error">"連線失敗 · 請檢查 Dhizuku 後重試"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"AHarness Glass(實驗性)"</string>
+    <string name="glass_title">"HMXHARNESS Glass(實驗性)"</string>
     <string name="glass_description">"為導航、控制元件和卡片新增玻璃效果。"</string>
     <string name="glass_enable">"毛玻璃"</string>
     <string name="glass_enable_hint">"使用半透明表面和柔和的模糊背景。"</string>

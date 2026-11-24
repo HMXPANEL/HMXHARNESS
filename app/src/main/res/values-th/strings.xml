@@ -978,7 +978,7 @@
     <string name="dhizuku_denied">"การเข้าถึงถูกปฏิเสธ · ให้สิทธิ์การเข้าถึงใน Dhizuku"</string>
     <string name="dhizuku_error">"การเชื่อมต่อล้มเหลว · ตรวจสอบ Dhizuku แล้วลองอีกครั้ง"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"กระจก AHarness (ทดลอง)"</string>
+    <string name="glass_title">"กระจก HMXHARNESS (ทดลอง)"</string>
     <string name="glass_description">"เอฟเฟกต์กระจกสำหรับการนำทาง การควบคุม และการ์ด"</string>
     <string name="glass_enable">"กระจกฝ้า"</string>
     <string name="glass_enable_hint">"ใช้พื้นผิวโปร่งแสงพร้อมพื้นหลังเบลออย่างนุ่มนวล"</string>

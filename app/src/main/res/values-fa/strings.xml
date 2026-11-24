@@ -970,7 +970,7 @@
     <string name="dhizuku_denied">دسترسی رد شد · در Dhizuku مجوز بدهید</string>
     <string name="dhizuku_error">اتصال ناموفق · Dhizuku را بررسی و دوباره تلاش کنید</string>
     <string name="settings_language_sinhala">සිංහල</string>
-    <string name="glass_title">AHarness Glass (آزمایشی)</string>
+    <string name="glass_title">HMXHARNESS Glass (آزمایشی)</string>
     <string name="glass_description">افکت‌های شیشه‌ای برای پیمایش، کنترل‌ها و کارت‌ها.</string>
     <string name="glass_enable">شیشه مات</string>
     <string name="glass_enable_hint">از سطوح نیمه‌شفاف با پس‌زمینه‌های نرم و محو استفاده کنید.</string>

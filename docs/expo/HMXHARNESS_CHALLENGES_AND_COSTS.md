@@ -1,280 +1,284 @@
 # HMXHARNESS — Engineering Challenges and Costs
 
 > Two rules govern this document:
-> 1. **Costs are only reported where measured.** No dollar figure, pricing tier or
->    cloud bill is estimated or invented. Where a cost is user-specific (model API
->    spending), the mechanism is described instead of a number.
-> 2. **Challenges are the ones actually encountered** while building and auditing
->    this repository, cross-referenced to the reports in `docs/audits/`.
+> 1. **Costs are only reported where measured.** No dollar figure, pricing tier,
+>    billing claim or invented retention period appears here. Where a cost is
+>    user-specific (model API spending), the mechanism is described instead of a
+>    number. CI runner time was **not measured** for this document.
+> 2. **Challenges are the ones actually visible in the current repository.**
+>    Historical commit hashes, old CI run IDs and old repository statistics are
+>    intentionally absent: this repository is a fresh migration whose previous
+>    Git history was not carried over.
+>
+> Paths are relative to `app/src/main/java/com/hmx/harness/` unless stated.
 
 ---
 
 ## Part A — Engineering challenges
 
-### A1. Consolidating a divergent branch history without losing work
+### A1. Migrating into a brand-new repository without carrying history
 
-**Problem.** Work was spread across `glass-ui`, `glass-final`, `github`,
-`feature/hmxharness-transformation` and `lint-baseline-gen`, with `main` behind.
+**Problem.** The project tree was delivered as an extracted ZIP and imported
+into a new empty GitHub repository (`HMXPANEL/HMXHARNESS`). Only two commits
+exist: the migration import and the wrapper executable-bit fix (`ae41ac7`).
+The previous repository's history, branch structure and CI records are absent;
+it was left untouched as a backup.
 
-**What was done.** Inventoried every branch by commit, proved that
-`feature/hmxharness-transformation` (`bbd2f8a1`) and `lint-baseline-gen`
-(`5e418195`) were **ancestors** of `main` (already merged, so re-merging would
-create noise), then confirmed the remaining chain was linear —
-`main → glass-ui (5fa33b2b) → glass-final (1719471d) → github (32127b31)` — and
-**fast-forwarded** `main` instead of cherry-picking. No force-push, no branch
-deletion.
+**What was done.** Attribution was moved from commit history into durable
+repository artifacts: `LICENSE` preserves the MIT text and
+`Copyright (c) 2026 Sanuu7`; `README.md` has an explicit "License and legal
+attribution" section; third-party notices live in
+`app/src/main/assets/licenses/`, `app/src/main/assets/richtext/*/LICENSE` and
+`app/src/main/assets/editor-tools/LICENSES.txt`; the About screen
+(`ui/settings/SettingsScreen.kt`) credits `Sanuu` and links the upstream
+author. Provenance is described per component, not as a blanket claim.
 
-**Residual risk.** Fast-forwarding keeps history truthful but means the
-consolidated tree carries every intermediate commit, including a failed lint
-state; that is documented rather than rewritten.
+**Residual risk.** Per-file upstream headers are rare, so a reader cannot infer
+authorship from most files. Do not claim "all engine code is upstream" or "all
+code is HMX-original"; cite component-level notes such as the Shizuku adaptation
+comments in `data/env/adb/`, the HMX patches in `data/env/CodeGraphPatches.kt`
+and the Caveman notice in `app/src/main/assets/licenses/caveman.txt`.
 
-*Evidence:* `docs/audits/HMXHARNESS_BRANCH_CONSOLIDATION_REPORT.md`,
-`docs/audits/HMXHARNESS_INTEGRATION_CHANGELOG.md`.
+### A2. CI failure caused by the extracted ZIP losing the executable bit
 
-### A2. Rebranching a 961-commit MIT project without breaking attribution
+**Problem.** The first CI run on the new repository (`45337564227`) failed with
+`./gradlew: Permission denied` (exit 126): ZIP extraction had dropped the
+executable bit on `gradlew`.
 
-**Problem.** The app had to be rebranded from `com.android.harness` to
-`com.hmx.harness` across ~1,200 Kotlin files, the manifest, resources, deep-link
-scheme and authorities — while remaining a legally clean MIT derivative.
+**What was done.** Commit `ae41ac7` restored Git mode `100755` on `gradlew`.
 
-**What was done.** A single rebrand commit (`2cb00a3d`) plus a follow-up fixing
-four unit tests whose expectations encoded the old package name. `LICENSE`
-retains `Copyright (c) 2026 Sanuu7`; `README.md` has an explicit "Attribution and
-upstream" section; `SECURITY.md`/`CONTRIBUTING.md`/issue templates were updated
-rather than deleted.
+**Verified outcome.** Run `45338701934` for `ae41ac7` completed with conclusion
+**success**; wrapper validation, JDK 21 setup, pinned NDK install, unit tests,
+`lintDebug`, `assembleDebug` + `assembleRelease`, APK verification and artifact
+upload all passed. Artifact `hmxharness-apks` id `14898111209` is 110,461,001
+bytes and not expired.
 
-**Residual risk.** `git shortlog` still shows 828 of 961 commits by upstream
-author `Sanuu` — this is a feature of honest history, and the Expo documents
-state it openly instead of implying original authorship of the whole codebase.
-
-### A3. Android resource merge failing on leftover `.bak` files
-
-**Problem.** CI failed because `*.xml.bak` files sat inside `res/`, and the
-Android resource merger rejects non-`.xml` files in resource directories.
-
-**What was done.** Deleted the stray backups, added `*.bak` to `.gitignore`, and
-removed the duplicate `settings_page_accounts_desc` string that had been
-introduced twice (`f1f2e7b8`, `0c833e64`).
-
-**Lesson worth presenting.** A build failure that looks like "Gradle is broken"
-turned out to be a file-hygiene issue in `res/`; the fix was three small commits,
-not a toolchain change.
-
-*Evidence:* `docs/audits/HMXHARNESS_BUILD_RECOVERY_REPORT.md`.
-
-### A4. Lint failures caused by using `LocalContext.getString` in Compose
-
-**Problem.** `lintDebug` failed on `LocalContext.current.getString(...)` inside
-composables (localization/lint rules), blocking the release build.
-
-**What was done.** Read strings with `stringResource(...)` at composition time and
-`String.format` for arguments (`32127b31`), rather than calling `getString` in
-composition. 0 lint errors afterwards, with the pre-existing lint **baseline**
-left in place.
-
-### A5. Native build fragility: NDK present vs. absent
+### A3. Native code must be optional for Kotlin-only builds
 
 **Problem.** The app has a real native layer (`app/src/main/cpp/`, llama.cpp via
-`FetchContent`, Vulkan on 64-bit ABIs), but requiring an NDK on every machine
-would make the project unbuildable on a phone-only workflow.
+`FetchContent` in `CMakeLists.txt`), but requiring an NDK everywhere would make
+local builds fragile.
 
-**What was done.** `app/build.gradle.kts` computes `hasNdk` and **omits the
-native block** when the pinned NDK (27.2.12479018) is not installed, so a
-Kotlin-only build still produces a working APK; CI installs the NDK explicitly,
-so cloud builds do include native code.
+**What was done.** `app/build.gradle.kts` computes `hasNdk` and omits the native
+block when the pinned NDK (27.2.12479018) is absent. CI installs the NDK
+explicitly (`.github/workflows/android-ci.yml`), so the cloud artifact includes
+native code.
 
-**Trade-off to state honestly.** A no-NDK local build is not feature-identical to
-the CI artifact for local inference.
+**Trade-off.** A no-NDK local build is not feature-identical to the CI artifact
+for local inference. State this rather than implying parity.
 
-### A6. No physical device available for verification
+### A4. No physical device available for verification
 
-**Problem.** `adb install` on the available phone failed with
-`INTER_ACROSS_USERS_FULL` / an AppOps `NullPointerException`, so the APK could
-not be installed and device behaviours could not be executed.
+**Problem.** No device was available for installation or interactive testing in
+this environment. Consequently every device-dependent behaviour — shell tiers,
+Shizuku/root/ADB, local GGUF, voice, browser, Telegram, GitHub approval — is
+**implemented with automated test coverage but not hardware-verified**.
 
-**Consequence for this audit.** Every device-dependent feature is labelled
-**implemented / not verified on hardware** (`HMXHARNESS_FEATURE_VERIFICATION.md`).
-This is the single largest honesty constraint in the project, and it is stated
-rather than hidden.
+**Consequence.** The feature matrix (`HMXHARNESS_FEATURE_VERIFICATION.md`)
+separates three things that earlier documentation blurred:
+(a) CI-verified (unit tests, lint, build), (b) instrumented tests that exist but
+are **not run by CI**, and (c) hardware behaviour that was not exercised. All
+23 investigated features have source implementations and automated test files;
+none is merely planned.
 
-### A7. Emulator instability in the cloud visual-QA workflow
+### A5. A "verification gate" that exists in code but not in the runtime path
 
-**Problem.** The Ubuntu-hosted emulator runs on SwiftShader, which becomes
-unstable after several GPU-heavy Compose launches; frames were captured across
-multiple runs instead of one.
+**Problem.** `hmx/HmxTaskVerification.kt` defines `HmxVerificationLevel`,
+`HmxTaskVerification.assess`, `canClaimCompletion()` (`:47`) and
+`HmxApprovalPolicy` (`:56`). A repo-wide search shows:
 
-**What was done.** 12 screenshots (6 dark, 6 light) were captured from real
-rendered frames in several cloud runs, and each image is labelled with its run
-ID. No mockups.
+- `assess()` is used by `ui/chat/components/VerificationCard.kt:48` to compute
+  the **displayed** verdict.
+- `canClaimCompletion()` and `HmxApprovalPolicy` are referenced only by
+  `app/src/test/java/com/hmx/harness/hmx/HmxTaskVerificationTest.kt`.
 
-**Residual risk.** Visual QA is not a jank/frame-time benchmark; performance on
-the target OPPO A38 remains **unmeasured** (`docs/HMXHARNESS_PERFORMANCE_REPORT.md`).
+**What is true.** `agent/VerificationEvidence.kt` records real shell
+build/test/lint results (`CheckStatus.PASSED/FAILED/UNKNOWN`) and flips earlier
+passes to `STALE` after later edits; the card renders that state. Actual
+approvals come from `PermissionMode` (`agent/AgentEngine.kt:42`),
+`RunManager.approve/deny` (`agent/RunManager.kt:1122`, `:1128`) with notification
+actions, plus `tools/ShellPolicy.kt` and `workspace/WorkspaceFs.kt`.
 
-> **Stale-document warning.** `docs/HMXHARNESS_PERFORMANCE_REPORT.md` describes an
-> earlier glass design (`LiquidGlassQuality.LITE`, `Runtime.maxMemory() < 320 MB`,
-> "no `RenderEffect` blur and no backdrop capture"). The current source uses
-> `GlassTier.LOW/MID/HIGH` with `detectGlassTier` thresholds of ≤255 MB / ≥512 MB
-> (`ui/liquidglass/GlassQuality.kt`) and real PrismalAGSL backdrop sampling with
-> blur, lens refraction and specular layers (`LiquidGlassModifiers.kt`). Treat the
-> performance report as historical design intent, **not** as current
-> implementation evidence.
+**Residual risk.** Do not market the HMX objects as an enforced completion gate.
+List this as a gap and a next step; it is not a shipped differentiator.
 
-### A8. GitHub OAuth without a client secret, and without a human to approve
+### A6. Visual verification is not gated
+
+**Problem.** `app/src/androidTest/java/com/hmx/harness/ui/liquidglass/LiquidGlassScreenshotTest.kt`
+captures real screenshots but contains **no pixel assertions** and wraps screens
+in `runCatching { }.onFailure { Log.w }`, so a missing or broken screen does not
+fail the test. The visual-QA workflow captures emulator images; it is not a
+comparison gate.
+
+**What is verified.** Tier resolution is unit-tested in
+`app/src/test/java/com/hmx/harness/ui/theme/HarnessGlassModeTest.kt`; tier logic
+is in `ui/liquidglass/GlassQuality.kt` (`GlassTier.LOW/MID/HIGH`,
+`detectGlassTier`, `profileFor`). Rendering primitives are third-party
+(PrismalAGSL, kyant0 Backdrop), while the token/tier system is HMX code.
+
+**Residual risk.** "Designed for low-end devices" is not "measured on a
+low-end device". Frame time and jank are **unmeasured**.
+
+### A7. Local GPU inference is opt-in and experimental
+
+**Problem.** Running GGUF models on a phone is memory- and backend-sensitive;
+enabling Vulkan by default would make failures hard to attribute.
+
+**What was done.** CPU inference is the shipped path via `local/LocalNative.kt`
+and `app/src/main/cpp/local_model.cpp`. GPU selection requires
+`SettingsRepository.localModelExperimental = true`
+(`data/SettingsRepository.kt:234`, default `false`) and the policy in
+`local/LocalAccelerationPolicy.kt` (`useGpu(experimental, preference, available)`;
+`retryOnCpu` for early GPU failures). `app/src/main/cpp/CMakeLists.txt` gives
+32-bit ABIs `local_unavailable.cpp` stubs.
+
+**Residual risk.** GPU behaviour is not hardware-verified; present it as
+experimental, not as a shipped or verified capability.
+
+### A8. GitHub sign-in without a client secret — and without a configured Client ID
 
 **Problem.** Device Flow needs (a) an OAuth App with Device Flow enabled and
-(b) a human to type the code at `github.com/login/device`. Neither can be done
-by an automated build.
+(b) a human to approve a code on `github.com`. Neither can be completed by an
+automated build. In this repository the `HMX_GITHUB_CLIENT_ID` variable is
+**not set**.
 
-**Authorship note.** The flow implementation is **upstream** (`2207914579`,
-2026-10-09). HMX's part is the Settings connection card (`ui/settings/
-ConnectedAccountsSection.kt`, `e169ef40`) and CI injection of the Client ID
-(`f9dccd39`, `5e100284`). Do not credit HMX with the flow itself.
-
-**What is in the app.** `github/GitHubAuth.kt` implements the full flow
+**What the code does.** `github/GitHubAuth.kt` implements the full flow
 (`/login/device/code` → poll `/login/oauth/access_token` → handle
 `authorization_pending`, `slow_down`, `expired_token`, `access_denied` → refresh
-via `offline_access`), plus a clear failure message when no Client ID is injected,
-plus PAT fallback. Logic is covered by `GitHubAuthTest.kt`; the **live approval
-step is marked unverified**.
+via `offline_access`) with PAT fallback. The flow is inherited upstream; HMX
+added `ui/settings/ConnectedAccountsSection.kt` and CI Client-ID injection
+(`.github/workflows/android-ci.yml`). CI warns and continues when the variable
+is absent. No client secret was introduced. Logic is covered by
+`app/src/test/java/com/hmx/harness/github/GitHubAuthTest.kt`; live approval was
+not performed.
 
-### A9. Privileged shell without root: three different providers
+### A9. Privileged shell without a single API
 
-**Problem.** "Run a real command on the phone" has no single API. Root may not
-exist; Shizuku needs a one-time ADB/Wireless-debugging setup; nothing may be
-available at all.
+**Problem.** "Run a real command on the phone" has no single API: root may not
+exist, Shizuku needs one-time setup, and the app must still work with nothing
+privileged available.
 
 **What was done.** `data/env/ShellTierRouter.kt` selects an `ExecutionTier`
-(`TERMUX_SSH`, `ROOT`, `PRIVILEGED` = Shizuku, `APP_LINUX`, `TOYBOX`) and
-`tools/ShellPolicy.kt` applies a denylist **before** execution regardless of tier,
-including recursive expansion of `$(...)`, backticks and variables, canonical
-workspace containment and redirection/symlink checks.
+(`TERMUX_SSH`, `ROOT`, `PRIVILEGED` = Shizuku, `APP_LINUX`, `TOYBOX`);
+`tools/ShellPolicy.kt` applies a denylist and canonical containment checks
+before execution regardless of tier; `workspace/WorkspaceFs.kt` enforces the
+workspace root.
 
 **Residual risk.** More tiers mean more paths to test; the tier matrix is not
-exhaustively covered by instrumentation tests.
+exhaustively covered by instrumented tests, and those tests are not run in CI.
 
-### A10. Security debt that was documented, not hidden
+### A10. Security debt documented, not hidden
 
-| Finding | Severity | Status |
+| Finding | Evidence | Status |
 |---|---|---|
-| `android:usesCleartextTraffic="true"` with no network security config | HIGH | Documented; scoped NSC proposed as P1 |
-| MCP static headers/env stored in plaintext `mcp-servers.json` (HMAC integrity only) | MEDIUM | Documented; move to `KeyStoreManager` proposed |
-| GitHub CLI token materialised in `linux/` prefix (`.gh-token`) | MEDIUM | Documented; keyring/credential-helper hardening proposed |
-| GPU runtime `.so` downloaded at runtime from a fixed upstream URL (SHA-256 pinned) | LOW | Documented; fork should publish its own package |
-| Release APK signed with the **Android debug key** | Risk, not a CVE | Documented; not Play-ready |
-| Backup password minimum 6 characters | LOW | Documented (600k PBKDF2 iterations mitigate) |
+| Cleartext traffic enabled globally | `app/src/main/AndroidManifest.xml:83` (`android:usesCleartextTraffic="true"`); `SECURITY.md` advises preferring HTTPS | Documented; do not claim "secure by default" |
+| MCP static headers / env values stored in plaintext config (HMAC is integrity, not encryption) | `tools/mcp/McpManager.kt`, `SECURITY.md` | Documented |
+| Release APK signed with the Android **debug** config | `app/build.gradle.kts` | Documented; not Play-ready |
+| Workspace/shell checks are best-effort, not a complete sandbox | `SECURITY.md`, `workspace/WorkspaceFs.kt`, `tools/ShellPolicy.kt` | Documented |
+| No guaranteed response time, remediation deadline or bug bounty | `SECURITY.md` | Documented |
 
-*Evidence:* `docs/HMXHARNESS_SECURITY_AUDIT.md`.
+No third-party audit exists. No analytics or crash SDK; provider calls go
+directly from the device (`llm/Llm.kt`).
 
-### A11. Maintaining a 158k-line codebase
+### A11. Maintaining a large derived codebase
 
 | Metric | Value |
 |---|---|
-| Kotlin files in `app/src/main/java` | 732 |
-| Kotlin lines in `app/src/main/java` | 158,276 |
-| Kotlin lines in tests | 35,422 |
-| Unit `@Test` methods | 2,478 across 351 files |
-| Instrumentation `@Test` methods | 555 across 139 files (not run in CI) |
-| Room entities / schema version / migrations | 14 / 27 / 23 |
-| Locales | 21 |
-| Tool files in `tools/` | 69 |
+| Files on disk / Git-tracked | 2,526 / 2,513 |
+| Markdown files on disk / tracked | 143 / 130 (8 are `docs/expo/`) |
+| Kotlin files | 1,231 total (732 main, 352 unit tests, 140 instrumented tests) |
+| Native sources | 12 C/C++/CMake files under `app/src/main/cpp/` |
+| XML files / assets | 1,009 / 100 |
+| Locales / strings | 21 `values-*` dirs plus base; 1,129 strings |
+| Unit / instrumented `@Test` methods | 2,478 / 555 |
+| Room | schema v27, 14 `@Entity`, 23 migrations (`data/db/Database.kt`) plus a separate debug-log database |
+| Workflows / README variants | 4 / 3 |
 
-The practical challenge is not writing features but keeping a large derived
-codebase compiling, lint-clean and test-green after a package rename — which is
-what the build-recovery work in `docs/audits/` is about.
+The practical challenge is keeping a large derived codebase compiling,
+lint-clean and test-green while preserving attribution and per-component
+provenance.
 
 ---
 
 ## Part B — Costs (measured, not estimated)
 
-### B1. What the project does **not** pay for
+### B1. What the project does not pay for
 
 | Item | Reality | Evidence |
 |---|---|---|
-| Backend server | **None exists.** Provider requests go from the device to the configured endpoint. | `llm/Llm.kt`, `llm/*Provider.kt`; no server module in `settings.gradle.kts` |
+| Backend server | **None exists.** Provider requests go from the device to the configured endpoint. | `llm/Llm.kt`; no server module in `settings.gradle.kts` |
 | Database hosting | **None.** Room is on-device. | `data/db/Database.kt` |
-| Push/analytics/crash SDK | **None present.** | `app/build.gradle.kts`, `PRIVACY.md` |
-| Model training | **None performed.** No training code in the repository. | audit finding; only `safetensors_import.cpp` (format conversion) |
+| Push / analytics / crash SDK | **None present.** | `app/build.gradle.kts`, `PRIVACY.md` |
+| Model training | **None performed.** No training code exists. | `app/src/main/cpp/safetensors_import.cpp` is format conversion only |
 
-### B2. Measured storage and artifact sizes
+### B2. Measured artifact and storage sizes
 
 | Artifact | Size | Source |
 |---|---|---|
-| CI APK artifact (debug + release bundle) | **110,461,382 bytes** (~105 MiB) | artifact `hmxharness-apks`, id `14837630763` |
-| Git object pack | **26.17 MiB** | `git count-objects -vH` |
-| Working tree including `.git` | **109 MB** | `du -sh` |
-| Local model download — SmolLM2 135M Q4_K_M | **105,454,432 bytes** (~100 MiB) | `local/LocalModelRecommendations.kt` |
-| Local model — SmolLM2 360M Q4_K_M | **270,590,880 bytes** | same |
-| Local model — Qwen 3 0.6B Q4_K_M | **484,220,320 bytes** | same |
-| Local model — SmolLM2 1.7B Q4_K_M | **1,055,609,824 bytes** | same |
+| CI APK artifact `hmxharness-apks` (debug + release) | **110,461,001 bytes** (~105 MiB) | Actions artifact id `14898111209`, run `45338701934` |
+| Recommended local model — SmolLM2 135M Q4_K_M | **105,454,432 bytes** | `local/LocalModelRecommendations.kt` |
+| SmolLM2 360M Q4_K_M | **270,590,880 bytes** | same |
+| Qwen 3 0.6B Q4_K_M | **484,220,320 bytes** | same |
+| SmolLM2 1.7B Q4_K_M | **1,055,609,824 bytes** | same |
 
-Local models therefore cost **storage and battery**, not money, but the smallest
-useful one is still a ~100 MB download.
+Local models cost **device storage, download bandwidth and battery**, not money
+to HMXHARNESS; the smallest catalog model is still about 100 MB.
 
-### B3. Cloud build cost (measured runtime, billed minutes not estimated)
+### B3. Cloud build cost
 
-`ubuntu-latest` runners, JDK 21, no emulator, `timeout-minutes: 90`,
-`concurrency` cancels superseded runs.
+Measured facts only:
 
-| Run | Commit | Outcome | Duration |
-|---|---|---|---|
-| `45219214615` | `22e674e9` (docs) | success | **27 m 47 s** |
-| `45204023911` | `32127b31` | success | **52 m 35 s** (cold cache) |
-| earlier green run | `32127b31` | success | **33 m 30 s** (warm cache) |
+- CI runs on `ubuntu-latest` with JDK 21 and an explicitly installed pinned NDK;
+  `timeout-minutes: 90` and concurrency cancellation are configured in
+  `.github/workflows/android-ci.yml`.
+- Run `45338701934` succeeded with all steps passing. **Runner duration was not
+  measured for this document**, so no minute figure is reported here.
+- Billing tiers and included minutes are account-specific; **no dollar amount,
+  pricing claim or retention period is invented**.
+- Failed runs cost time: the earlier run `45337564227` failed at the wrapper
+  step and required the `ae41ac7` fix. Retrying builds is the real operational
+  cost driver.
 
-Interpretation to present honestly:
-
-- A green pipeline costs **~30–55 minutes of standard-runner compute**.
-- Warm Gradle caching roughly halves it; the cache action is
-  `gradle/actions/setup-gradle@v4`.
-- On a **public** repository, standard GitHub-hosted runner minutes are not
-  billed (GitHub's published policy at the time of writing); on a private
-  repository they consume the account's included minutes. **No dollar amount is
-  claimed here** because the billing tier is account-specific.
-- Failed runs are the expensive ones: the recovery day on 2026-11-23 produced
-  several short failures (1.5–16 min) before each green build, which is the real
-  cost driver of a CI-based workflow.
-
-### B4. Runtime cost the *user* pays, and how the app exposes it
+### B4. Runtime cost the user pays, and how the app exposes it
 
 - **Cloud model usage** is charged by the user's chosen provider, not by
-  HMXHARNESS. The app estimates spend locally from published list prices:
-  `llm/ModelPrices.kt` (`costFor`, "Rough list prices ($ per 1M tokens) ... backed
-  by models.dev", incl. cache read/write multipliers) and `ModelCatalog.kt`,
-  `ModelsDev.kt`.
-- **Free path exists:** the built-in `harness` provider (`llm/HarnessProvider.kt`,
-  `HarnessFreeLimit.kt`) routes to free public gateways
-  (`opencode.ai/zen`, `api.kilo.ai`, `text.pollinations.ai`). This is a
-  **third-party free tier**, not an HMX-hosted model — it can rate-limit or disappear, and must not be presented as guaranteed
-  free inference.
-- **Keyless web search:** `tools/SearchProviders.kt` (`KEYLESS`, scraping
-  DuckDuckGo/Bing/Brave/Google result pages) needs no API key but is slower and
-  can be blocked.
-- **Keyed search providers** (Brave, Tavily, Serper, Linkup, Jina, LangSearch,
-  SerpApi, Firecrawl, Marginalia) are the user's own accounts.
+  HMXHARNESS. The app estimates spend locally from published list prices in
+  `llm/ModelPrices.kt` (`costFor`), with metadata from `llm/ModelCatalog.kt`
+  and `llm/ModelsDev.kt`.
+- **Free path:** `llm/HarnessProvider.kt` routes to third-party public gateways.
+  This is a third-party free tier, not an HMX-hosted model; it can be
+  rate-limited or withdrawn and is not guaranteed free inference.
+- **Keyless web search:** `tools/SearchProviders.kt` can scrape result pages
+  without an API key, but is slower and can be blocked. Keyed providers are the
+  user's own accounts.
+- **GitHub Device Flow** requires no client secret; PAT sign-in remains
+  available in the current artifact where the Client-ID variable is unset.
 
 ### B5. Hardware requirements implied by the code
 
 | Requirement | Evidence |
 |---|---|
 | Android 8.0+ (`minSdk 26`) | `app/build.gradle.kts` |
-| 64-bit ABI for local inference (`arm64-v8a`/`x86_64`; 32-bit gets stubs) | `app/src/main/cpp/CMakeLists.txt`, `local_unavailable.cpp` |
-| ≥ 2–4 GiB RAM for recommended local models | `LocalModelSpec.minimumRamGiB` (2 GiB for 135M, 3 GiB for Qwen3 0.6B, 4 GiB for 1.7B) |
+| 64-bit ABI for local inference (`arm64-v8a` / `x86_64`); 32-bit gets stubs | `app/src/main/cpp/CMakeLists.txt`, `local_unavailable.cpp` |
+| RAM for recommended local models (2 GiB for 135M, 3 GiB for Qwen3 0.6B, 4 GiB for 1.7B) | `local/LocalModelRecommendations.kt` (`LocalModelSpec.minimumRamGiB`) |
 | Shizuku **or** root **or** Wireless ADB for privileged shell | `data/env/ShizukuManager.kt`, `RootManager.kt`, `data/env/adb/` |
-| Network for cloud models, web search, GitHub | provider and tool code |
+| Network for cloud models, web search, GitHub | `llm/Llm.kt`, `tools/SearchProviders.kt`, `github/` |
 
-### B6. What would cost money to take this further (clearly labelled as plan)
+### B6. What would cost money or effort to take this further (plan, not current cost)
 
-These are **not** current costs; they are the predictable next expenses. They are
-listed so judges see the project understands its own economics:
-
-1. **A real release keystore** — free to create, but required before any store
-   distribution (today the release APK uses the debug key).
-2. **A Play Console account** — a one-off Google fee; not paid here.
-3. **Paid model API budget** for reproducible benchmarks — variable, user-chosen.
-4. **A physical test device or accelerated emulator** — needed for the currently
+1. **A release keystore** — required before any store distribution; today the
+   release build uses the debug config (`app/build.gradle.kts`).
+2. **A Play Console account** — a one-off fee if store distribution is wanted;
+   not paid here.
+3. **A paid model API budget** for reproducible benchmarks — variable and
+   user-chosen; none is claimed.
+4. **A physical test device or accelerated emulator** — needed for the
    unmeasured frame-time, local-inference and shell-tier results.
-5. **Third-party free-tier dependence** — free gateways and keyless search have
-   no SLA; a paid key is the fallback.
+5. **Wiring the HMX gate into the runtime** — engineering work, not a licence
+   or fee: `canClaimCompletion()` and `HmxApprovalPolicy` are currently
+   test-only.
+6. **Gating visual QA** — add pixel assertions to
+   `LiquidGlassScreenshotTest.kt` instead of logging failures.
 
 ---
 
@@ -282,8 +286,9 @@ listed so judges see the project understands its own economics:
 
 1. "There is no server bill, because there is no server: the agent, the database
    and the credentials all live on the phone."
-2. "Our only recurring infrastructure cost is cloud CI, roughly half an hour of
-   standard runner time per green build — and failed builds are what actually
-   cost time."
-3. "What we have **not** measured is device performance and on-hardware
-   behaviour; those are pending, not passed."
+2. "Our measured infrastructure footprint is a 110,461,001-byte CI artifact from
+   a green build; runner time was not measured, and failed builds are what
+   actually cost time."
+3. "What we have **not** done is hardware verification, performance measurement,
+   live GitHub approval, or runtime enforcement of the HMX verification gate —
+   those are pending, not passed."

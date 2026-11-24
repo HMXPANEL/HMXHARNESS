@@ -978,7 +978,7 @@
     <string name="dhizuku_denied">"Truy cập bị từ chối · cấp quyền truy cập ở Dhizuku"</string>
     <string name="dhizuku_error">"Kết nối không thành công · kiểm tra Dhizuku và thử lại"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"Kính khai thác (Thử nghiệm)"</string>
+    <string name="glass_title">"Kính HMXHARNESS (Thử nghiệm)"</string>
     <string name="glass_description">"Hiệu ứng kính cho điều hướng, điều khiển và thẻ."</string>
     <string name="glass_enable">"Kính mờ"</string>
     <string name="glass_enable_hint">"Sử dụng các bề mặt mờ với nền mờ nhẹ nhàng."</string>

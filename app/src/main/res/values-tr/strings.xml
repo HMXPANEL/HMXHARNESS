@@ -979,7 +979,7 @@
     <string name="dhizuku_denied">"Erişim reddedildi · Dhizuku\'da erişim izni ver"</string>
     <string name="dhizuku_error">"Bağlantı başarısız oldu · Dhizuku\'yu kontrol edip tekrar deneyin"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"AHarness Camı (Deneysel)"</string>
+    <string name="glass_title">"HMXHARNESS Camı (Deneysel)"</string>
     <string name="glass_description">"Gezinme, kontroller ve kartlar için cam efektleri."</string>
     <string name="glass_enable">"Buzlu cam"</string>
     <string name="glass_enable_hint">"Hafifçe bulanıklaştırılmış arka planlara sahip yarı saydam yüzeyler kullanın."</string>
