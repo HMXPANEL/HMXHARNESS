@@ -52,7 +52,7 @@ fun ProvidersScreen(
     var showDisabled by rememberSaveable { mutableStateOf(false) }
     var controlsFor by remember { mutableStateOf<ProviderConfig?>(null) }
     var showControls by remember { mutableStateOf(false) }
-    var saveError by remember { mutableStateOf<String?>(null) }
+    var saveFailed by remember { mutableStateOf(false) }
     var showAllModels by remember { mutableStateOf(false) }
     val visibility by com.hmx.harness.data.ModelVisibility.get(LocalContext.current).state.collectAsStateWithLifecycle()
     val selection = rememberProviderSelection()
@@ -221,19 +221,16 @@ fun ProvidersScreen(
                         }
                         showDialog = false
                     } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                    catch (e: Exception) {
-                        saveError = e.message?.takeIf { it.isNotBlank() }
-                            ?: uiContext.getString(R.string.provider_save_failed)
-                    }
+                    catch (_: Exception) { saveFailed = true }
                 }
             },
         )
     }
 
-    if (saveError != null) AlertDialog(
-        onDismissRequest = { saveError = null },
-        text = { Text(saveError.orEmpty()) },
-        confirmButton = { TextButton(onClick = { saveError = null }) { Text(stringResource(android.R.string.ok)) } },
+    if (saveFailed) AlertDialog(
+        onDismissRequest = { saveFailed = false },
+        text = { Text(stringResource(R.string.provider_save_failed)) },
+        confirmButton = { TextButton(onClick = { saveFailed = false }) { Text(stringResource(android.R.string.ok)) } },
     )
 
     if (showModelsFor != null || showAllModels) {
@@ -263,7 +260,7 @@ fun ProvidersScreen(
             onRefreshCatalog = { providerId ->
                 val provider = providers.firstOrNull { it.id == providerId }
                 when {
-                    provider == null -> stringResource(R.string.ui_unknown_provider)
+                    provider == null -> uiContext.getString(R.string.ui_unknown_provider)
                     else -> when (
                         val result = com.hmx.harness.llm.ModelCatalog.listModels(
                             provider,
