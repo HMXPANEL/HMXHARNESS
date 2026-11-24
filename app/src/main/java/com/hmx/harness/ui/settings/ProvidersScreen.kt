@@ -263,7 +263,7 @@ fun ProvidersScreen(
             onRefreshCatalog = { providerId ->
                 val provider = providers.firstOrNull { it.id == providerId }
                 when {
-                    provider == null -> uiContext.getString(R.string.ui_unknown_provider)
+                    provider == null -> stringResource(R.string.ui_unknown_provider)
                     else -> when (
                         val result = com.hmx.harness.llm.ModelCatalog.listModels(
                             provider,

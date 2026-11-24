@@ -17172,7 +17172,7 @@
         errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/hmx/harness/ui/settings/ProvidersScreen.kt"
-            line="266"
+            line="263"
             column="41"/>
     </issue>
 
