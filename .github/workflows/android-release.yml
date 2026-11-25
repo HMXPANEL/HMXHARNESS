@@ -1,12 +1,13 @@
 name: HMXHARNESS Android Release Build
 
 # Produces the installable release APK (applicationId com.hmx.harness) on a
-# cloud runner. Release signing uses AGP's debug signing config inherited from
-# upstream, so no private keystore or CI secret is needed. If a dedicated
-# release keystore is configured later, replace signingConfigs with secrets.
+# cloud runner. Release signing uses the project's managed keystore supplied
+# through protected GitHub Actions secrets. Debug signing is never a fallback.
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
@@ -21,6 +22,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      # The temporary keystore lives outside the checked-out repository and is
+      # removed in an always() cleanup step. Secret values are never echoed.
+      RELEASE_KEYSTORE_FILE: ${{ runner.temp }}/hmxharness-release.jks
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
     steps:
       - name: Checkout source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -39,6 +48,26 @@ jobs:
             echo "::warning::HMX_GITHUB_CLIENT_ID is not set. GitHub sign-in stays disabled in this build; personal access tokens remain available."
           fi
 
+      - name: Validate release signing secrets
+        run: |
+          set -euo pipefail
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::Missing required signing secret: $name"
+              exit 1
+            fi
+          done
+          echo "All release signing secrets are present."
+
+      - name: Decode release keystore
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_KEYSTORE_FILE"
+          chmod 600 "$RELEASE_KEYSTORE_FILE"
+          echo "Release keystore decoded to a temporary path outside the repository."
+
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
@@ -56,34 +85,70 @@ jobs:
       - name: Set up Gradle with caching
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
-      - name: Assemble release APK
+      - name: Assemble signed release APK
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
-      - name: Verify and stage release APK
+      - name: Verify signature and stage signed artifact
         id: apk
         run: |
           set -euo pipefail
           apk="app/build/outputs/apk/release/app-release.apk"
           test -s "$apk" || { echo "Missing or empty release APK"; exit 1; }
-          mkdir -p dist
-          cp "$apk" "dist/HMXHARNESS-${GITHUB_REF_NAME}-release.apk"
-          echo "size=$(stat -c%s "$apk")" >> "$GITHUB_OUTPUT"
 
-      - name: Upload release APK
+          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          if [ -z "$aapt_bin" ]; then
+            aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)"
+          fi
+          test -n "$apksigner_bin" && test -n "$aapt_bin" || { echo "::error::Android build tools not found"; exit 1; }
+
+          "$apksigner_bin" verify --print-certs "$apk"
+          actual="$("$apksigner_bin" verify --print-certs "$apk" \
+            | sed -n 's/.*SHA-256 digest: *//p' | head -1 \
+            | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          expected="EEE6DD0E68A80AF4A7270FE62BBF525B921280C3471FBA1960FCA976C0478FC7"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::Release signer certificate fingerprint does not match the expected certificate."
+            exit 1
+          fi
+          echo "Release signer certificate fingerprint verified."
+
+          badging="$("$aapt_bin" dump badging "$apk" | head -1)"
+          echo "$badging" | grep -q "name='com.hmx.harness'" || { echo "::error::Unexpected package name"; exit 1; }
+          echo "$badging" | grep -q "versionCode='40'" || { echo "::error::Unexpected version code"; exit 1; }
+          echo "$badging" | grep -q "versionName='4.0'" || { echo "::error::Unexpected version name"; exit 1; }
+
+          mkdir -p dist
+          cp "$apk" dist/HMXHARNESS-release.apk
+          sha256sum dist/HMXHARNESS-release.apk > dist/HMXHARNESS-release.sha256
+          echo "size=$(stat -c%s "$apk")" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum dist/HMXHARNESS-release.apk | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "fingerprint=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Upload signed release APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: hmxharness-release-apk
-          path: dist/*.apk
+          name: hmxharness-signed-release
+          path: |
+            dist/HMXHARNESS-release.apk
+            dist/HMXHARNESS-release.sha256
           retention-days: 90
           if-no-files-found: error
+
+      - name: Clean up temporary keystore
+        if: always()
+        run: rm -f "$RELEASE_KEYSTORE_FILE"
 
       - name: Publish build summary
         if: always()
         run: |
           {
-            echo "## HMXHARNESS Release"
+            echo "## HMXHARNESS Signed Release"
             echo ""
             echo "- Ref: \`${GITHUB_REF_NAME}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
-            echo "- Release APK: \`app/build/outputs/apk/release/app-release.apk\`"
+            echo "- Package: \`com.hmx.harness\` (40 / 4.0)"
+            echo "- Artifact: \`hmxharness-signed-release\`"
+            echo "- Signer SHA-256: \`${{ steps.apk.outputs.fingerprint }}\`"
+            echo "- APK SHA-256: \`${{ steps.apk.outputs.sha256 }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

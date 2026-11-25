@@ -23,6 +23,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      # Release variant in this workflow is signed with the managed keystore.
+      # The temporary file is outside the repository and removed on exit.
+      RELEASE_KEYSTORE_FILE: ${{ runner.temp }}/hmxharness-release.jks
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
     steps:
       - name: Checkout source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -40,6 +48,26 @@ jobs:
           else
             echo "::warning::HMX_GITHUB_CLIENT_ID is not set. GitHub sign-in stays disabled in this build; personal access tokens remain available."
           fi
+
+      - name: Validate release signing secrets
+        run: |
+          set -euo pipefail
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::Missing required signing secret: $name"
+              exit 1
+            fi
+          done
+          echo "All release signing secrets are present."
+
+      - name: Decode release keystore
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_KEYSTORE_FILE"
+          chmod 600 "$RELEASE_KEYSTORE_FILE"
+          echo "Release keystore decoded to a temporary path outside the repository."
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
@@ -96,6 +124,10 @@ jobs:
           path: dist/*.apk
           retention-days: 90
           if-no-files-found: error
+
+      - name: Clean up temporary keystore
+        if: always()
+        run: rm -f "$RELEASE_KEYSTORE_FILE"
 
       - name: Publish build summary
         if: always()
