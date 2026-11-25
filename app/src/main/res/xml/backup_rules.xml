@@ -6,10 +6,22 @@
      (.gh-token, gh hosts.yml, etc/gitconfig). linux/ and the linux-deploy
      staging dir are re-deployable and self-healing, so excluding them whole
      also keeps a huge toolchain out of the 25 MB cloud backup quota. The
-    DataStore files (provider names/URLs, settings) are excluded too: they
-    fingerprint the user's AI stack and restore nothing usable without the
-    keys, which are excluded above. -->
+     DataStore files (provider names/URLs, settings) are excluded too: they
+     fingerprint the user's AI stack and restore nothing usable without the
+     keys, which are excluded above.
+     Room databases are excluded as a whole domain: chat text, tool results,
+     memories and checkpoint file snapshots must stay on the device. The
+     explicit file entries below cover WAL/SHM/journal sidecars on older
+     Android versions that do not apply the database domain exclusion to them. -->
 <full-backup-content>
+    <exclude domain="database" path="harness.db" />
+    <exclude domain="database" path="harness.db-wal" />
+    <exclude domain="database" path="harness.db-shm" />
+    <exclude domain="database" path="harness.db-journal" />
+    <exclude domain="database" path="debug-log.db" />
+    <exclude domain="database" path="debug-log.db-wal" />
+    <exclude domain="database" path="debug-log.db-shm" />
+    <exclude domain="database" path="debug-log.db-journal" />
     <exclude domain="sharedpref" path="api_keys.xml" />
     <exclude domain="sharedpref" path="model-shortcuts.xml" />
     <exclude domain="sharedpref" path="wireless_adb.xml" />

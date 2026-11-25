@@ -980,7 +980,7 @@
     <string name="dhizuku_denied">"Accès refusé · accorder l\'accès à Dhizuku"</string>
     <string name="dhizuku_error">"La connexion a échoué · vérifiez Dhizuku et réessayez"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"Verre AHarness (expérimental)"</string>
+    <string name="glass_title">"Verre HMXHARNESS (expérimental)"</string>
     <string name="glass_description">"Effets de verre pour la navigation, les commandes et les cartes."</string>
     <string name="glass_enable">"Verre dépoli"</string>
     <string name="glass_enable_hint">"Utilisez des surfaces translucides avec des arrière-plans légèrement flous."</string>

@@ -42,4 +42,3 @@ Steps or notes:
 - [ ] Existing features, permissions, routes and database schemas are preserved, or the change explains why they must change.
 - [ ] New behavior has tests, or the pull request explains why a test is not practical.
 - [ ] Documentation is updated when setup, configuration or user-visible behavior changed.
-- [ ] I followed the [Code of Conduct](../CODE_OF_CONDUCT.md).

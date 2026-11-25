@@ -1,5 +1,6 @@
 package com.hmx.harness.tools.mcp
 
+import com.hmx.harness.network.RemoteUrlPolicy
 import com.hmx.harness.tools.ToolFailure
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -135,7 +136,7 @@ internal class StreamableHttpTransport(
 
     override suspend fun send(message: String) = withContext(Dispatchers.IO) {
         val request = Request.Builder()
-            .url(url)
+            .url(RemoteUrlPolicy.validate(url, "MCP"))
             .header("Accept", "application/json, text/event-stream")
             .header(McpProtocol.HEADER, McpProtocol.REMOTE_VERSION)
             .post(message.toRequestBody(mediaJson))
@@ -198,7 +199,7 @@ internal class SseLegacyTransport(
 
     override suspend fun start(cwd: File) = withContext(Dispatchers.IO) {
         val request = Request.Builder()
-            .url(url)
+            .url(RemoteUrlPolicy.validate(url, "MCP"))
             .header("Accept", "text/event-stream")
             .apply {
                 authHeader()?.let { header("Authorization", it) }
@@ -268,7 +269,7 @@ internal class SseLegacyTransport(
         val target = postUrl
             ?: throw ToolFailure("MCP server has not announced its message endpoint yet")
         val request = Request.Builder()
-            .url(target)
+            .url(RemoteUrlPolicy.validate(target, "MCP"))
             .header(McpProtocol.HEADER, McpProtocol.REMOTE_VERSION)
             .post(message.toRequestBody("application/json".toMediaTypeOrNull()))
             .apply {
@@ -332,6 +333,7 @@ internal fun sseEvents(body: String): List<Pair<String?, String>> {
 
 /** Shared OkHttp client for remote MCP transports (tools can be slow: 5 min read). */
 internal fun mcpHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    .addNetworkInterceptor(RemoteUrlPolicy.secureTransportInterceptor)
     .connectTimeout(15, TimeUnit.SECONDS)
     .readTimeout(5, TimeUnit.MINUTES)
     .callTimeout(0, TimeUnit.MILLISECONDS)

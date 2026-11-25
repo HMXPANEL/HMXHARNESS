@@ -979,7 +979,7 @@
     <string name="dhizuku_denied">"पहुंच अस्वीकृत · ढिज़ुकु में पहुंच प्रदान करें"</string>
     <string name="dhizuku_error">"कनेक्शन विफल · ढिज़ुकु की जाँच करें और पुनः प्रयास करें"</string>
     <string name="settings_language_sinhala">"සිංහල"</string>
-    <string name="glass_title">"एहार्नेस ग्लास (प्रायोगिक)"</string>
+    <string name="glass_title">"HMXHARNESS ग्लास (प्रायोगिक)"</string>
     <string name="glass_description">"नेविगेशन, नियंत्रण और कार्ड के लिए ग्लास प्रभाव।"</string>
     <string name="glass_enable">"पाले सेओढ़ लिया गिलास"</string>
     <string name="glass_enable_hint">"हल्की धुंधली पृष्ठभूमि वाली पारभासी सतहों का उपयोग करें।"</string>

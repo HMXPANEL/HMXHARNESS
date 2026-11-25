@@ -198,11 +198,23 @@ class GitHubAuth(
 
     suspend fun disconnect() {
         cancelSignIn()
-        mutex.withLock {
-            write(null)
-            _state.value = GitHubConnectionState(message = "Signed out on this device.")
-            sync()
+        // Clear the master copy first so every toolchain re-materialisation sees
+        // no token. sync() then removes .gh-token, gh's hosts.yml and rewrites
+        // gitconfig without the insteadOf credential rule.
+        mutex.withLock { write(null) }
+        val synced = runCatching { sync() }
+        if (synced.isFailure) {
+            _state.value = GitHubConnectionState(message =
+                "Signed out in the app, but toolchain credentials could not be removed. Check the toolchain and try again.")
+            return
         }
+        val stillStored = mutex.withLock { read()?.token?.isNotBlank() == true }
+        _state.value = GitHubConnectionState(message = if (stillStored) {
+            "Signed out, but a local credential remains. Remove it in connected-account settings."
+        } else {
+            "Signed out on this device. GitHub toolchain copies were removed. " +
+                "This public OAuth client cannot revoke the grant on GitHub; revoke it in GitHub settings if needed."
+        })
     }
 
     suspend fun accessToken(): String? = mutex.withLock { accessTokenLocked() }

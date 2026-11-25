@@ -181,6 +181,10 @@ private fun SyncConnectionDialog(c: AppContainer, initial: SyncProfile, onDismis
         }) { Text(stringResource(R.string.settings_action_save)) } }, dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.settings_action_cancel)) } })
 }
 
+/** Fresh, high-entropy credential for one share session only. */
+private fun newFtpPassword(): String = ByteArray(24).also { SecureRandom().nextBytes(it) }
+    .joinToString("") { "%02x".format(it) }
+
 @Composable
 internal fun FtpServerSection(c: AppContainer) {
     val state by c.ftpShare.state.collectAsStateWithLifecycle()
@@ -190,7 +194,7 @@ internal fun FtpServerSection(c: AppContainer) {
     val fs = remember(project) { project?.let { runCatching { c.workspace.fsFor(it) }.getOrNull() } }
     var port by remember { mutableStateOf("2121") }
     var username by remember { mutableStateOf("hmxharness") }
-    var password by remember { mutableStateOf(ByteArray(12).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }) }
+    var password by remember { mutableStateOf(newFtpPassword()) }
     var reveal by remember { mutableStateOf(false) }
     var lan by remember { mutableStateOf(false) }
     var readOnly by remember { mutableStateOf(true) }
@@ -211,17 +215,28 @@ internal fun FtpServerSection(c: AppContainer) {
                 TextButton(onClick = { reveal = !reveal }) { Text(stringResource(if (reveal) R.string.transfer_hide_password else R.string.transfer_show_password)) }
                 Text(stringResource(if (state.readOnly) R.string.ftp_server_read_only else R.string.ftp_server_writable))
                 Text(stringResource(R.string.ftp_server_background_hint), style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { c.ftpShare.stop() }) { Text(stringResource(R.string.ftp_server_stop)) }
+                Button(onClick = {
+                    c.ftpShare.stop()
+                    // Single-session credential: the old password is invalid
+                    // as soon as the server stops.
+                    password = newFtpPassword()
+                }) { Text(stringResource(R.string.ftp_server_stop)) }
             } else {
                 WorkspaceChoice(projects, project, true) { projectId = it }
                 if (fs?.shellRoot == null) Text(stringResource(R.string.transfer_local_required), color = MaterialTheme.colorScheme.error)
                 TransferField(port, { port = it.filter(Char::isDigit).take(5) }, R.string.transfer_port, false, number = true)
                 TransferField(username, { username = it.take(100) }, R.string.transfer_username, false)
-                OutlinedTextField(password, { password = it.take(256) }, singleLine = true, label = { Text(stringResource(R.string.transfer_password)) },
+                OutlinedTextField(password, onValueChange = {}, readOnly = true, singleLine = true,
+                    label = { Text(stringResource(R.string.transfer_password)) },
                     visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
-                TextButton(onClick = { reveal = !reveal }) { Text(stringResource(if (reveal) R.string.transfer_hide_password else R.string.transfer_show_password)) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { reveal = !reveal }) { Text(stringResource(if (reveal) R.string.transfer_hide_password else R.string.transfer_show_password)) }
+                    TextButton(onClick = { password = newFtpPassword() }) { Text(stringResource(R.string.transfer_ftp_regenerate_password)) }
+                }
                 TransferToggle(stringResource(R.string.ftp_server_allow_lan), lan, { lan = it })
+                if (lan) Text(stringResource(R.string.transfer_ftp_lan_warning), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error)
                 TransferToggle(stringResource(R.string.ftp_server_read_only), readOnly, { readOnly = it })
                 Text(stringResource(R.string.ftp_server_scope_hint), style = MaterialTheme.typography.bodySmall)
                 Button(enabled = fs?.shellRoot != null && password.length >= 8 && username.isNotBlank() && port.toIntOrNull() in 1024..65535, onClick = {

@@ -234,6 +234,8 @@ internal fun ProviderSheetContent(
     }
     val requiresKey = if (devChoice != null) true else brand?.needsKey ?: true
     val selectedLabel = brand?.label ?: devChoice?.name ?: uiContext.getString(R.string.settings_provider_custom_endpoint)
+    val urlError = if (isCustom && !baseUrl.startsWith("local://"))
+        com.hmx.harness.network.RemoteUrlPolicy.validationError(baseUrl, "Provider") else null
 
     // Offline model list from the catalog: shown instantly on step 3 when the
     // live fetch hasn't produced a list (or failed).
@@ -425,6 +427,10 @@ internal fun ProviderSheetContent(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        if (urlError != null) {
+                            Text(urlError, style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error)
+                        }
                     }
 
                     if (requiresKey || keyPool.keys.any { it.value.isNotEmpty() }) {
@@ -468,7 +474,7 @@ internal fun ProviderSheetContent(
                     primary = {
                         Button(
                             onClick = { continueToModels() },
-                            enabled = !fetching && headersValid && keysValid &&
+                            enabled = !fetching && headersValid && keysValid && urlError == null &&
                                 (!isCustom || baseUrl.isNotBlank()),
                         ) { Text(if (fetching) uiContext.getString(R.string.ui_connecting) else uiContext.getString(R.string.settings_action_continue)) }
                     },

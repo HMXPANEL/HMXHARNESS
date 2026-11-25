@@ -1092,7 +1092,7 @@ private fun WebPageView(
                             useWideViewPort = true
                             builtInZoomControls = true
                             displayZoomControls = false
-                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                             allowFileAccess = false
                             allowContentAccess = false
                         }

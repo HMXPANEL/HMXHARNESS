@@ -5,6 +5,7 @@ import com.hmx.harness.AppContainer
 import com.hmx.harness.llm.HarnessProvider
 import com.hmx.harness.llm.ProviderConfig
 import com.hmx.harness.local.LocalModelCatalog
+import com.hmx.harness.network.RemoteUrlPolicy
 import com.hmx.harness.tools.mcp.McpServerConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -112,7 +113,7 @@ enum class SettingsBackupProblem(val hint: String) {
     SEARCH("A saved search setting is unsupported. Review Web search settings."),
     MODEL_LIMITS("Saved model limits are outside the backup range. Review Run limits in Agent settings."),
     PROVIDER_REFERENCE("A selected provider is missing. Choose your models again in Models and Subagent settings."),
-    PROVIDER_URL("A saved provider URL is invalid. Review Manage providers in Models settings."),
+    PROVIDER_URL("A saved provider URL is invalid or insecure. Remote providers must use https://; plain http:// is allowed only for localhost development servers. Review Manage providers in Models settings."),
     CUSTOM_MODELS("A custom model ID is empty or too long. Review Manage providers in Models settings."),
     PROVIDER_CONTROLS("An API key pool or proxy setting is invalid. Review connection controls."),
     PROVIDER_HEADERS("A custom provider header is invalid. Review Manage providers in Models settings."),
@@ -177,7 +178,8 @@ object SettingsBackupValidation {
             // HTTP endpoints with Unicode or underscore hostnames, for example.
             val url = it.config.baseUrl.toHttpUrlOrNull()
             val uri = runCatching { java.net.URI(it.config.baseUrl) }.getOrNull()
-            check(url != null && uri != null && uri.scheme.lowercase() in setOf("http", "https") &&
+            val secureScheme = runCatching { RemoteUrlPolicy.validate(it.config.baseUrl, "Provider") }.isSuccess
+            check(url != null && uri != null && secureScheme &&
                 !uri.rawAuthority.isNullOrBlank() && uri.rawUserInfo == null &&
                 url.encodedUsername.isEmpty() && url.encodedPassword.isEmpty(), SettingsBackupProblem.PROVIDER_URL)
             check(it.customModels.all { model -> model.length in 1..500 }, SettingsBackupProblem.CUSTOM_MODELS)

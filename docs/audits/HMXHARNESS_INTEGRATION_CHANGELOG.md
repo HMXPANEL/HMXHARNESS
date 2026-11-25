@@ -1,5 +1,9 @@
 # HMXHARNESS — Integration Changelog
 
+> **Historical document.** This changelog records integration work in the
+> **previous** repository. Commit hashes and CI references below are historical
+> and do not exist in the current fresh-migration repository.
+
 - **Repository:** https://github.com/HMXPANEL/HMXHARNESS
 - **Branch:** `main`
 - **Date:** 2026-11-23
@@ -120,8 +124,8 @@ f1f2e7b8 fix(res): delete stray strings.xml.bak files breaking resource merge
   in place.
 
 ### Documentation
-- `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
-  `CHANGELOG.md`, `.editorconfig`, `.github/PULL_REQUEST_TEMPLATE.md`.
+- `README.md`, `SECURITY.md`, `CHANGELOG.md`, `.editorconfig`,
+  `.github/PULL_REQUEST_TEMPLATE.md`.
 - UI/feature/visual reports under `docs/`.
 
 ### Debug tooling

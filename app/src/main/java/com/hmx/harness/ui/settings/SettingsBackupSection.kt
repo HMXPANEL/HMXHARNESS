@@ -127,7 +127,7 @@ internal fun SettingsBackupSection(container: AppContainer) {
                 }
             },
             confirmButton = {
-                TextButton(enabled = !busy && password.length >= BackupEncryption.MIN_PASSWORD_LENGTH && (!exporting || password == confirmation), onClick = {
+                TextButton(enabled = !busy && password.length >= (if (exporting) BackupEncryption.MIN_PASSWORD_LENGTH else BackupEncryption.MIN_DECRYPT_PASSWORD_LENGTH) && (!exporting || password == confirmation), onClick = {
                     val chars = password.toCharArray()
                     password = ""
                     confirmation = ""

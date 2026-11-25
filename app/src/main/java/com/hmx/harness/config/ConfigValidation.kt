@@ -1,5 +1,6 @@
 package com.hmx.harness.config
 
+import com.hmx.harness.network.RemoteUrlPolicy
 import kotlinx.serialization.json.*
 
 /** Runtime validation is shared by the editor, preview, MCP gate and run startup. */
@@ -57,8 +58,12 @@ object ConfigValidation {
                 for (key in listOf("env", "headers")) v[key]?.let { map -> obj(map); map.fields.values.forEach(::string) }
                 if (complete && v["command"] == null && v["url"] == null) bad(v, "MCP server needs a command or URL.")
                 if (v["command"] != null && v["url"] != null) bad(v, "Choose a command or URL, not both.")
-                v["url"]?.let { if (!it.string().orEmpty().startsWith("https://") && !it.string().orEmpty().startsWith("http://") &&
-                    listOf("{env:", "{file:", "{secret:").none { prefix -> it.string().orEmpty().contains(prefix) }) bad(it, "MCP URL must use http:// or https://.") }
+                v["url"]?.let { value ->
+                    val text = value.string().orEmpty()
+                    if (listOf("{env:", "{file:", "{secret:").none { prefix -> text.contains(prefix) }) {
+                        RemoteUrlPolicy.validationError(text, "Remote MCP")?.let { bad(value, it) }
+                    }
+                }
             }
             val normalized = mcp.fields.filterValues { it.json !is JsonNull }.keys.map { it.lowercase().replace('-', '_') }
             if (normalized.distinct().size != normalized.size) bad(mcp, "MCP names collide after tool-name normalization.")

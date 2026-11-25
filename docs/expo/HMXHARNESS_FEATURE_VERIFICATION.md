@@ -1,81 +1,99 @@
 # HMXHARNESS — Feature Verification Matrix
 
-> Status vocabulary:
-> **V** = verified (code + automated tests/build), **I** = implemented (code
-> present, not fully tested here), **P** = partially implemented, **E** =
-> experimental, **N** = not implemented/found.
+> **Scope of this matrix.** Every claim is tied to source in
+> `app/src/main/java/com/hmx/harness/` (paths below are relative to that
+> directory), to a test under `app/src/test/` or `app/src/androidTest/`, or to
+> CI run `45338701934` on commit `ae41ac7`.
 >
-> "Verified" is only used where the build/tests actually exercise it. The app was
-> **not installed on a physical device** during this audit.
+> **Status vocabulary**
+>
+> - **CI-verified** — exercised by the green CI run (unit tests, lintDebug,
+>   assembleDebug + assembleRelease) or directly asserted by a passing unit
+>   test in that run.
+> - **Implemented + tests** — real source implementation **and** automated test
+>   files exist. Tests may be unit tests, instrumented tests, or both.
+> - **GAP** — code exists, but an expected runtime behaviour is absent or a test
+>   is non-gating; stated explicitly rather than counted as verified.
+>
+> **Cross-cutting limits:** instrumented tests exist but **are not run by CI**,
+> and **no physical-device verification was performed**. Therefore no
+> device-dependent feature is "hardware-verified", regardless of test coverage.
+> The **23 features investigated in the source audit all have real source
+> implementations and automated test files**; none is merely planned.
 
-| # | Feature | Description | Status | Source evidence | Demo steps |
-|---:|---|---|:--:|---|---|
-| 1 | Code agent | Multi-round agent that edits files, runs commands and verifies | **V** | `agent/AgentEngine.kt` (`run`, `executeCalls`); unit tests in `app/src/test/.../agent/`; CI passes | New Code chat → "add a test to X" → watch tool cards and diff |
-| 2 | Chat mode | Conversation-only assistant: fixed tool allowlist, no project files/terminal/device | **V** (tool set fixed in code; unit-tested context policy) | `data/ConversationConfig.kt` (`isChat`, `allowedTools`), `core/ChatExperience.kt` (`tools`, system prompt: "no project files, terminal ... or arbitrary filesystem access"), `ChatContextPolicyTest` | Drawer → Chat → ask a question with web search |
-| 3 | Plan mode | Read-only tool schema subset | **I** | `AgentMode.PLAN`, `readOnlyOnly = mode == PLAN` (`AgentEngine.kt:978`) | Composer mode → Plan → agent proposes without writing |
-| 4 | Subagents | `task` tool spawns read-only or action agents | **V** | `AgentEngine.runSubagent` (line 2159), `SubagentRuns.kt`; `SubagentConfigurationTest` | Ask agent to "use a subagent to inspect X" |
-| 5 | Universal/project memory | Scoped memory with categories, pinning, search | **I** | `data/MemoryRepository.kt` (scopes/categories), `MemoryTools.kt`, `MemoryNotesTest` | Settings → Memory → add fact → agent recalls it |
-| 6 | Context compaction | Auto-compaction under budget | **V** | `agent/AutoCompaction.kt`, `HistoryCompactor.kt`; `AutoCompactionTest`, `HistoryCompactorTest` | Long chat → context ring near 75% → Compact |
-| 7 | Verification cards | Build/test/lint outcomes + staleness | **V** | `agent/VerificationEvidence.kt`, `hmx/HmxTaskVerification.kt`, `ui/chat/components/VerificationCard.kt` | Ask for a change → run tests → card shows PASSED/STALE |
-| 8 | Steering & queue | Inject/queue follow-ups mid-run | **I** | `agent/Steering.kt`, `QuestionAutoContinue.kt`; `SteeringTest` | While running, hold send → "Steer after this step" |
-| 9 | Question cards | Staged multiple-choice/written answers | **I** | `agent/AskUserOptions.kt`; `AskUserOptionsTest` | Ask agent to request a preference |
-| 10 | File tools + undo | Read/write/edit/apply_patch, atomic writes, history | **V** | `tools/FileTools.kt`, `PatchTools.kt`, `FuzzyEdit.kt`, `FileHistoryTools.kt`; tool unit tests | Ask to edit a file → open diff → Undo |
-| 11 | Shell + access modes | Toybox/APP_LINUX/Shizuku/root/ADB execution | **I** | `tools/ShellTool.kt`, `data/env/ShellTierRouter.kt` (`TERMUX_SSH/ROOT/PRIVILEGED/APP_LINUX/TOYBOX`), `ShellPolicyTest` | Run `uname -a`; switch access mode in Settings |
-| 12 | Linux toolchain | Termux bash/git/python/node install, SHA-256 verified, mirrors | **I** | `data/env/LinuxEnvironment.kt`, `PackageMirrors.kt` | Settings → Terminal & device → install toolchain |
-| 13 | Git tools | status/diff/commit/log/branch/checkout/push/pull | **I** | `tools/GitTools.kt` (registry entries in `Tool.kt`) | Ask agent to commit and push a change |
-| 14 | GitHub Device Flow | OAuth App device flow, no client secret | **I** (unit-tested; live not verified) | `github/GitHubAuth.kt` (`/login/device/code`, `authorization_pending`, `slow_down`, refresh); `GitHubAuthTest.kt` | Connected Accounts → GitHub → copy code → approve on github.com |
-| 15 | GitHub repos/PRs | Import repo, commit, open PR | **I** | `github/GitHubRepository.kt`, `GitHubPullRequests.kt`; `GitHubPullRequestsTest`, `GitHubRepositoryTest` | Settings → GitHub → import repo → create PR |
-| 16 | Browser automation | WebView navigate/click/type/eval/screenshot | **I** | `browser/BrowserController.kt`, `tools/BrowserTools.kt`; androidTest `browser/` | Ask agent to open a local preview and click a button |
-| 17 | Web research | 9 keyed providers + keyless engines, passages, citations | **I** | `tools/SearchProviders.kt` (9 keyed + keyless), `SearchBackends.kt`, `WebSearchText.kt` | Chat → ask a current question → Sources list |
-| 18 | MCP | Client, OAuth 2.1 PKCE, dynamic tools | **I** | `tools/mcp/McpManager.kt`, `McpOAuth.kt`, `McpToolAdapter.kt` | Settings → MCP → add server → tool appears |
-| 19 | Plugins | Catalog, install, hooks, marketplaces | **I** | `plugins/PluginManager.kt`, `PluginCatalog.kt`, `config/PluginHooks.kt` | Settings → Plugins → install a plugin |
-| 20 | Automations | Scheduled prompts via WorkManager | **I** | `automation/AutomationWorker.kt`, `AutomationManager.kt`; `AutomationAiPlanner.kt` | Composer menu → Schedule → hourly |
-| 21 | Reminders/alarms | Notification reminders, Clock alarms, timers | **I** | `reminders/`, `tools/ReminderTools.kt`, `Manifest` receivers | Ask "remind me in 1 minute" |
-| 22 | Voice in/out | 7 cloud voice providers + native speech | **I** | `data/audio/` (`EdgeTtsClient`, `GroqWhisperClient`, `OpenAiAudioClient`, `ElevenLabsClient`, `DeepgramVoiceClient`, `ProviderVoiceClients` for Cartesia/AssemblyAI) | Mic button → speak; speaker on a reply |
-| 23 | Local GGUF models | llama.cpp JNI, CPU + Vulkan on 64-bit | **I** (not verified on this device) | `local/LocalNative.kt`, `local/LocalModelProvider.kt`, `app/src/main/cpp/local_model.cpp` | Settings → Local models → download small GGUF → chat |
-| 24 | 9Router | Local routing node integration | **I** | `router/NineRouterManager.kt`, `NineRouterNodeRuntime.kt`, `NineRouterControl.kt` | Settings → 9Router → start node |
-| 25 | Telegram remote | Bot bridge for remote chat/approvals | **I** | `telegram/TelegramBotClient.kt`, `TelegramGateway.kt`, `TelegramService.kt` | Settings → Telegram → pair bot |
-| 26 | Live Mode | Voice conversation with tool access levels | **I** | `agent/LiveMode.kt`; `LiveModeTest` | Composer → Live Mode |
-| 27 | Liquid Glass UI | Custom tokens + Prismal rendering + 3 tiers | **I** (screenshots documented) | `ui/liquidglass/*`, `ui/theme/`; `docs/HMXHARNESS_VISUAL_VERIFICATION.md` | Toggle Dark/Light; show drawer over content |
-| 28 | Code editor | sora-editor with tabs/search | **I** | `ui/files/`, `libs.versions.toml` (`sora-editor`) | Files → open file → edit → save |
-| 29 | Projects/workspaces | Multi-folder projects, read-only grants | **I** | `workspace/`, `ui/projects/`, `agent/GrantPersistence.kt` | Create project → add two folders |
-| 30 | 21 locales | Translated UI with fallback | **V** (format/localization tests) | `app/src/main/res/values-*` (21 dirs); localization unit tests | Settings → Appearance → Language |
-| 31 | Backups | JSON chat export/import; encrypted settings | **I** | `data/ChatBackup.kt` (`ChatBackupManager`), `data/BackupEncryption.kt` | Settings → Backup → export |
-| 32 | Agent edits settings | Natural-language settings changes | **I** | `tools/AppSettingsTools.kt` | "Turn on dark mode" |
-| 33 | Rich replies | Charts, tables, Mermaid, interactive HTML | **I** | `core/response/RichResponse.kt`, `ui/chat/` | Ask for a chart or diagram |
-| 34 | Cloud build + APK | Tests, lint, APK artifacts | **V** | `.github/workflows/android-ci.yml`; runs `45204023911`, `45219214615`; `aapt` verified | Show the Actions run and download artifact |
+## Verification layers at a glance
 
-## Status summary
+| Layer | What exists | What is actually verified |
+|---|---|---|
+| CI unit tests + build + lint | 2,478 `@Test` methods in `app/src/test`; `lintDebug`; both APKs | **Yes** — run `45338701934` succeeded; artifact `hmxharness-apks` id `14898111209` (110,461,001 bytes) |
+| Instrumented tests | 555 `@Test` methods in `app/src/androidTest` | Files exist and compile; **not executed by CI** |
+| Hardware / device behaviour | Shell tiers, GGUF, voice, browser, Telegram, Shizuku | **Not verified** — no physical device was used |
+| HMX runtime verification gate | `hmx/HmxTaskVerification.kt` objects | **GAP** — `canClaimCompletion()` and `HmxApprovalPolicy` are test-only; verdict display only |
+| Visual correctness | Emulator screenshots + `LiquidGlassScreenshotTest.kt` | **GAP** — no pixel assertions; failures logged via `runCatching { }.onFailure { Log.w }` |
 
-| Status | Count |
-|---|---:|
-| V — verified by tests/build | 8 |
-| I — implemented, not fully tested here | 26 |
-| P/E/N | 0 |
+## Feature matrix
 
-> "Implemented" does **not** mean "verified on a phone". It means the code path
-> exists and compiles. Device-level behaviour (shell access, local inference,
-> voice, Telegram, Shizuku, browser automation) requires real hardware,
-> permissions and accounts and was not exercised in this audit.
+| # | Feature | Source evidence | Automated test evidence | Status | Notes |
+|---:|---|---|---|---|---|
+| 1 | Code agent loop | `agent/AgentEngine.kt` (`run` :296, `while (true)` :463, `executeCalls` :1112); `agent/RunManager.kt` | unit tests under `app/src/test/.../agent/` | **CI-verified** (loop code + tests); device UI not hardware-verified | Budgets, retries, compaction, events |
+| 2 | Chat mode | `core/ChatExperience.kt`, `data/ConversationConfig.kt` (`isChat`, `allowedTools`) | `ChatContextPolicyTest`, chat experience tests | **CI-verified** (fixed allowlist + tests) | No project files, terminal or arbitrary filesystem |
+| 3 | Plan mode | `AgentMode.PLAN`, `readOnlyOnly = mode == AgentMode.PLAN` (`agent/AgentEngine.kt:978`) | agent mode/permission unit tests | **Implemented + tests** | Read-only tool schema subset |
+| 4 | Subagents | `AgentEngine.runSubagent`, `agent/SubagentRuns.kt`, `SubagentConfiguration.kt` | `SubagentConfigurationTest` and related unit tests | **Implemented + tests** | `task` spawns read-only or action agents |
+| 5 | Memory | `data/MemoryRepository.kt`, `agent/MemoryNotes.kt`, `MemoryTopics.kt` | `MemoryNotesTest`, memory repository tests | **Implemented + tests** | Global/project/chat scopes, pinning, search |
+| 6 | Context compaction | `agent/AutoCompaction.kt`, `HistoryCompactor.kt`, `ChatContextPolicy.kt` | `AutoCompactionTest`, `HistoryCompactorTest` | **CI-verified** | Budget-driven history reduction |
+| 7 | Verification evidence + card | `agent/VerificationEvidence.kt` (`CheckStatus`, `collect`), `ui/chat/components/VerificationCard.kt` | verification evidence unit tests; card tests | **CI-verified** for `STALE` logic; UI not hardware-verified | Records shell build/test/lint results; flips passes to `STALE` after edits |
+| 8 | HMX verdict / approval objects | `hmx/HmxTaskVerification.kt` (`assess`, `canClaimCompletion()` :47, `HmxApprovalPolicy` :56); card uses `assess` at `ui/chat/components/VerificationCard.kt:48` | `app/src/test/java/com/hmx/harness/hmx/HmxTaskVerificationTest.kt` | **GAP** | `canClaimCompletion()` and `HmxApprovalPolicy` have **no runtime caller**; they do not gate the agent or classify commands. Real approval: `PermissionMode`, `RunManager.approve/deny`, notification actions, `tools/ShellPolicy.kt` |
+| 9 | Steering & queue | `agent/Steering.kt`, `QuestionAutoContinue.kt` | `SteeringTest` | **Implemented + tests** | Messages injected between rounds |
+| 10 | Question cards | `agent/AskUserOptions.kt` | `AskUserOptionsTest` | **Implemented + tests** | Staged multiple-choice / written answers |
+| 11 | File tools + undo | `tools/FileTools.kt`, `PatchTools.kt`, `FuzzyEdit.kt`, `FileHistoryTools.kt` | tool unit tests under `app/src/test/.../tools/` | **CI-verified** (tool logic + tests) | Atomic writes and before/after history |
+| 12 | Shell + access tiers | `tools/ShellTool.kt`, `BgShell.kt`, `ShellPolicy.kt`, `data/env/ShellTierRouter.kt` | `ShellPolicyTest`, shell tool tests | **Implemented + tests**; **not hardware-verified** | `TOYBOX`, `APP_LINUX`, `PRIVILEGED` (Shizuku), `ROOT`, `TERMUX_SSH`; real execution needs a device |
+| 13 | Linux toolchain | `data/env/LinuxEnvironment.kt`, `PackageMirrors.kt` | environment/bootstrap unit tests | **Implemented + tests**; **not hardware-verified** | Termux packages with SHA-256 verification and mirrors |
+| 14 | Git tools | `tools/GitTools.kt` (registered in `tools/Tool.kt`) | Git tool unit tests | **Implemented + tests**; **not hardware-verified** | status, diff, commit, push, pull |
+| 15 | GitHub Device Flow + repos/PRs | `github/GitHubAuth.kt`, `GitHubRepository.kt`, `GitHubPullRequests.kt`, `ui/settings/ConnectedAccountsSection.kt` | `app/src/test/java/com/hmx/harness/github/GitHubAuthTest.kt`, `GitHubRepositoryTest`, `GitHubPullRequestsTest` | **Implemented + tests** | Flow logic unit-tested; **live approval not performed** (needs a human). Flow is upstream; HMX added the card and CI wiring. `HMX_GITHUB_CLIENT_ID` is not set, so Device Flow is disabled in the current artifact; PAT works |
+| 16 | Browser automation | `browser/BrowserController.kt`, `browser/WorkspacePathHandler.kt`, `tools/BrowserTools.kt` | instrumented tests under `app/src/androidTest/.../browser/` | **Implemented + tests**; instrumented tests **not run by CI**; **not hardware-verified** | Real WebView navigate/click/type/eval/screenshot |
+| 17 | Web research | `tools/SearchProviders.kt`, `SearchBackends.kt`, `WebSearchText.kt`, `TavilyPageReader.kt` | search backend unit tests | **Implemented + tests** | Keyed providers plus keyless engines; network behaviour not hardware-verified |
+| 18 | MCP | `tools/mcp/McpManager.kt`, `McpConnection.kt`, `McpTransport.kt`, `McpOAuth.kt`, `McpToolAdapter.kt` | MCP unit tests | **Implemented + tests**; **not hardware-verified** | OAuth 2.1 PKCE; static headers stored in plaintext config (`SECURITY.md`) |
+| 19 | Plugins | `plugins/PluginManager.kt`, `PluginCatalog.kt`, `PluginStore.kt`, `config/PluginHooks.kt` | plugin manager unit tests | **Implemented + tests** | Catalog, install, hooks |
+| 20 | Automations / reminders | `automation/AutomationWorker.kt`, `AutomationManager.kt`, `reminders/`, `tools/ReminderTools.kt` | automation unit tests | **Implemented + tests**; **not hardware-verified** | WorkManager scheduling, notifications/alarms |
+| 21 | Voice in / out | `data/audio/` clients (Edge TTS, Groq, OpenAI, ElevenLabs, Deepgram, Cartesia, AssemblyAI) | audio client unit tests | **Implemented + tests**; **not hardware-verified** | Needs provider keys and device audio |
+| 22 | Local GGUF inference | `local/LocalNative.kt`, `LocalModelProvider.kt`, `app/src/main/cpp/local_model.cpp`, `CMakeLists.txt` | local model / policy unit tests | **Implemented + tests**; **not hardware-verified** | **CPU** is the shipped path. GPU requires `localModelExperimental = true` (default `false`, `data/SettingsRepository.kt:234`) and `local/LocalAccelerationPolicy.kt`; 32-bit ABIs get stubs |
+| 23 | Liquid Glass UI | `ui/liquidglass/GlassQuality.kt` (`GlassTier`, `detectGlassTier`, `profileFor`), `GlassTokens.kt`, `LiquidGlassModifiers.kt` | `app/src/test/java/com/hmx/harness/ui/theme/HarnessGlassModeTest.kt` (tier resolution); `app/src/androidTest/java/com/hmx/harness/ui/liquidglass/LiquidGlassScreenshotTest.kt` (screenshots) | **CI-verified** for tier resolution; **GAP** for visual correctness | Screenshot test has no pixel assertions and suppresses failures; visual-QA workflow captures images but is not gating |
 
-## Features documented but not independently confirmed
+### Other implemented areas (source referenced, with automated tests)
 
-These appear in `FEATURES.md`/`README.md`; the code exists, but this audit did
-not run them end-to-end:
+`router/NineRouterManager.kt` (9Router), `telegram/TelegramGateway.kt` and
+`TelegramBotClient.kt` (remote control), `agent/LiveMode.kt` (voice mode),
+`ui/files/` with sora-editor (code editor), `workspace/` and
+`ui/projects/` (workspaces), `app/src/main/res/values-*` (21 locales, 1,129
+strings), `data/ChatBackup.kt` and `data/BackupEncryption.kt` (backups),
+`tools/AppSettingsTools.kt` (agent-editable settings), `core/response/RichResponse.kt`
+(rich replies), and `.github/workflows/android-ci.yml` (cloud build). These are
+implemented with test files; none was hardware-verified in this environment.
 
-- Telegram remote approvals bound to a fingerprint.
-- 9Router node lifecycle and terminal UI parity.
-- GPU (Vulkan) acceleration on real hardware.
-- Cloud-emulator visual QA for the `github` screen on `main`.
-- Metered-network-aware automation scheduling.
+## What CI actually proves
 
-## Documented sources that are out of date
+CI run `45338701934` demonstrated:
 
-- `docs/HMXHARNESS_PERFORMANCE_REPORT.md` describes an earlier glass design
-  (`LiquidGlassQuality.LITE`, `< 320 MB` threshold, "no backdrop capture"). Current
-  code uses `GlassTier.LOW/MID/HIGH` (`ui/liquidglass/GlassQuality.kt`) with real
-  PrismalAGSL backdrop blur/refraction (`LiquidGlassModifiers.kt`). Cite the
-  performance report only for its "unmeasured" conclusion, not for design details.
-- `README.md`'s "Attribution and upstream" paragraph calls GitHub Device Flow an
-  HMX addition; git shows it was introduced upstream (`2207914579`). The reports
-  in `docs/expo/` use the git record, not that sentence.
+- Gradle wrapper validation and JDK 21 setup succeed.
+- The pinned NDK 27.2.12479018 installs and the build works with native code.
+- All 2,478 unit tests pass; `lintDebug` passes with `app/lint-baseline.xml`.
+- `assembleDebug` and `assembleRelease` produce non-empty APKs; release is
+  **debug-signed** (installable alpha, not Play-ready).
+- The `hmxharness-apks` artifact (id `14898111209`, 110,461,001 bytes) was
+  uploaded and is not expired.
+- The missing `HMX_GITHUB_CLIENT_ID` variable produces a warning, not a failure;
+  no client secret was introduced.
+
+CI does **not** prove: instrumented test results, on-device shell tier
+behaviour, local GGUF inference (CPU or experimental GPU), voice, Telegram,
+live GitHub approval, or visual pixel correctness.
+
+## Honest gaps to state at the Expo
+
+1. The HMX completion/approval objects exist and are unit-tested but are not
+   runtime-wired; do not present them as an enforced gate.
+2. Glass tier resolution is unit-tested; screenshots are captured, but there is
+   no gating pixel comparison and the screenshot test suppresses failures.
+3. GPU inference is opt-in and experimental; CPU GGUF is the shipped path.
+4. Instrumented tests are not run by CI, and no physical device was used — say
+   "implemented with automated test coverage, not hardware-verified".

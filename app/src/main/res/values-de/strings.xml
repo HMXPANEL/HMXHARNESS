@@ -970,7 +970,7 @@
     <string name="dhizuku_denied">Zugriff verweigert · Zugriff in Dhizuku erlauben</string>
     <string name="dhizuku_error">Verbindung fehlgeschlagen · Dhizuku prüfen und erneut versuchen</string>
     <string name="settings_language_sinhala">සිංහල</string>
-    <string name="glass_title">AHarness Glass (experimentell)</string>
+    <string name="glass_title">HMXHARNESS Glass (experimentell)</string>
     <string name="glass_description">Glas-Effekte für Navigation, Bedienelemente und Karten.</string>
     <string name="glass_enable">Milchglas</string>
     <string name="glass_enable_hint">Verwende durchscheinende Flächen mit weich unscharfem Hintergrund.</string>

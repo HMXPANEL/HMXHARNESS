@@ -1078,6 +1078,7 @@ private fun McpSection(container: AppContainer, onOpenPlugins: () -> Unit, onOpe
     val servers by container.mcp.servers.collectAsStateWithLifecycle(initialValue = emptyList())
     val statuses by container.mcp.statuses.collectAsStateWithLifecycle(initialValue = emptyMap())
     val configTampered by container.mcp.configTampered.collectAsStateWithLifecycle(initialValue = false)
+    val configError by container.mcp.configError.collectAsStateWithLifecycle(initialValue = null)
     var editing by remember { mutableStateOf<McpServerConfig?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var authError by remember { mutableStateOf<String?>(null) }
@@ -1094,6 +1095,10 @@ private fun McpSection(container: AppContainer, onOpenPlugins: () -> Unit, onOpe
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
+                if (configError != null) {
+                    Text(configError.orEmpty(), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -1344,8 +1349,12 @@ private fun McpServerDialog(
     }
     val duplicate = (initial == null || initial.name.isBlank()) &&
         container.mcp.servers.value.any { it.name.equals(name.trim(), ignoreCase = true) }
+    val urlInvalid = when (type) {
+        "http", "sse" -> com.hmx.harness.network.RemoteUrlPolicy.validationError(url, "Remote MCP")
+        else -> null
+    }
     val valid = when (type) {
-        "http", "sse" -> name.isNotBlank() && url.isNotBlank() && !duplicate
+        "http", "sse" -> name.isNotBlank() && url.isNotBlank() && !duplicate && urlInvalid == null
         else -> name.isNotBlank() && command.isNotBlank() && !duplicate
     }
 
@@ -1410,6 +1419,8 @@ private fun McpServerDialog(
                         label = { Text(stringResource(R.string.settings_mcp_server_url)) },
                         placeholder = { Text("https://mcp.example.com/mcp") },
                         singleLine = true,
+                        supportingText = { urlInvalid?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
+                        isError = urlInvalid != null,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(

@@ -1,8 +1,12 @@
 # HMXHARNESS repo wiki
 
-Last updated 07/11/2026, generated from `main` at commit `aae55c4`.
+Source guide for the current HMXHARNESS repository
+(https://github.com/HMXPANEL/HMXHARNESS). This index describes the 75 generated
+wiki pages on the `main` branch; commit hashes from earlier repository history
+are deliberately not carried over, because the current repository is a fresh
+migration and does not preserve that history.
 
-75 pages covering the app's architecture, runtime, tools, UI and operations. Each page names the classes and files it describes, includes a flow diagram where one applies, and ends with links to the source it was written from.
+75 pages covering the app's architecture, runtime, tools, UI and operations. Each page names the classes and files it describes, includes a flow diagram where one applies, and ends with links to the source it was written from. Class and file names refer to the Android application source under `app/src/main/java/com/hmx/harness/`.
 
 Since the previous edition (September 2026) the app grew a separate Chat section, Live Mode, universal memory, scheduled automations, Telegram control, plugins and marketplaces, a skills manager, local models with GPU support, 9Router, SSH and FTP workspaces, an interactive terminal, the storage inventory, a settings search, 21 languages and a large amount of provider and compaction work. Pages 05 to 13, 21 to 22, 26 to 32, 40, 44, 52 to 58, 59 to 63, 64 to 67, 71 and 75 are new or substantially rewritten for that work.
 

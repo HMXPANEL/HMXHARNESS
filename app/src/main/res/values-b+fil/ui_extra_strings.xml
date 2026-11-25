@@ -563,4 +563,6 @@
     <string name="subagents_hide_result">"Itago ang resulta"</string>
     <string name="subagents_no_output">"Walang resultang ibinalik."</string>
     <string name="subagents_took">"Tumagal ng %1$s"</string>
+    <string name="transfer_ftp_regenerate_password">Generate new password</string>
+    <string name="transfer_ftp_lan_warning">LAN mode exposes this share to other devices. FTP is unencrypted: anyone on the network can capture the password and files. Use SFTP for encrypted sharing.</string>
 </resources>

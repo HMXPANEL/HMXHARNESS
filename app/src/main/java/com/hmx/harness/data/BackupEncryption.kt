@@ -8,7 +8,10 @@ import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 object BackupEncryption {
-    const val MIN_PASSWORD_LENGTH = 6
+    /** Minimum for newly created backups. */
+    const val MIN_PASSWORD_LENGTH = 12
+    /** Older exports used six characters; keep them restorable (import only). */
+    const val MIN_DECRYPT_PASSWORD_LENGTH = 6
     const val MAX_PASSWORD_LENGTH = 1024
     const val MAX_BYTES = 4 * 1024 * 1024
     private const val ITERATIONS = 600_000
@@ -28,7 +31,7 @@ object BackupEncryption {
     fun decrypt(file: ByteArray, password: CharArray): ByteArray {
         require(file.size in (HEADER_SIZE + 16)..MAX_BYTES) { "Invalid backup size." }
         require(file.copyOfRange(0, magic.size).contentEquals(magic)) { "Unsupported settings backup." }
-        require(password.size in MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH) { "Incorrect password or damaged backup." }
+        require(password.size in MIN_DECRYPT_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH) { "Incorrect password or damaged backup." }
         return try {
             crypt(Cipher.DECRYPT_MODE, file.copyOfRange(HEADER_SIZE, file.size), password, file.copyOfRange(0, HEADER_SIZE))
         } catch (_: java.security.GeneralSecurityException) {
