@@ -44,8 +44,6 @@ val releaseStorePath = System.getenv("RELEASE_KEYSTORE_FILE")?.takeIf { it.isNot
 val releaseStorePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
 val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")?.takeIf { it.isNotBlank() }
 val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
-val releaseSigningReady = releaseStorePath != null && releaseStorePassword != null &&
-    releaseKeyAlias != null && releaseKeyPassword != null
 val hasNdk: Boolean = run {
     val sdk = System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }?.let { File(it) }
         ?: rootProject.file("local.properties").takeIf { it.exists() }
@@ -107,8 +105,8 @@ android {
             }
         }
         create("release") {
-            // Placeholder values when secrets are absent; verifyReleaseSigning
-            // fails any release build before signing instead of using debug.
+            // Placeholder values when secrets are absent; the configuration-time
+            // guard below fails any release packaging task instead of using debug.
             storeFile = rootProject.file(releaseStorePath ?: "release-signing-not-configured.jks")
             storePassword = releaseStorePassword.orEmpty()
             keyAlias = releaseKeyAlias.orEmpty()
@@ -355,20 +353,27 @@ if (hasNdk) androidComponents.onVariants { variant ->
     if (distributionChannel == "github") variant.sources.assets?.addGeneratedSourceDirectory(prepare, PrepareGpuRuntime::assetDirectory)
 }
 
-// A release build must never reuse the debug key. This task fails early with a
-// clear message when the protected signing environment is incomplete.
-val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
-    doFirst {
-        check(releaseSigningReady) {
-            "Release signing is not configured. Set RELEASE_KEYSTORE_FILE, RELEASE_KEYSTORE_PASSWORD, " +
-                "RELEASE_KEY_ALIAS and RELEASE_KEY_PASSWORD from protected CI secrets. " +
-                "Refusing to fall back to debug signing."
-        }
-        check(rootProject.file(releaseStorePath!!).isFile) {
-            "Release keystore file is missing at the configured RELEASE_KEYSTORE_FILE path."
-        }
+// A release build must never reuse the debug key. Validate the protected signing
+// environment during configuration, so any release packaging task fails early
+// with a clear message. Configuration-time checks (unlike a task action) are
+// fully compatible with Gradle's configuration cache.
+val releasePackagingRequested = gradle.startParameter.taskNames.any { requested ->
+    Regex("(^|:)(assemble|bundle|package|install)Release$").containsMatchIn(requested)
+}
+if (releasePackagingRequested) {
+    val missing = listOfNotNull(
+        "RELEASE_KEYSTORE_FILE" to releaseStorePath,
+        "RELEASE_KEYSTORE_PASSWORD" to releaseStorePassword,
+        "RELEASE_KEY_ALIAS" to releaseKeyAlias,
+        "RELEASE_KEY_PASSWORD" to releaseKeyPassword,
+    ).filter { it.second == null }.map { it.first }
+    if (missing.isNotEmpty()) {
+        throw GradleException(
+            "Release signing is not configured: missing ${missing.joinToString(", ")}. " +
+                "Provide them from protected CI secrets. Refusing to fall back to debug signing."
+        )
+    }
+    if (!rootProject.file(releaseStorePath!!).isFile) {
+        throw GradleException("Release keystore file is missing at the configured RELEASE_KEYSTORE_FILE path.")
     }
 }
-tasks.matching {
-    it.name == "assembleRelease" || it.name == "bundleRelease" || it.name == "packageRelease"
-}.configureEach { dependsOn(verifyReleaseSigning) }
