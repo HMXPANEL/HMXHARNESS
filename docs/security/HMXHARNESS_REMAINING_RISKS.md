@@ -7,7 +7,7 @@ This document records what is **not** proven by the completed remediation. Sourc
 | ID | Status | What remains blocked | Why | Suggested owner action |
 |---|---|---|---|---|
 | HMX-005 | PARTIALLY FIXED | Server-side revocation of the GitHub OAuth grant | GitHub's revocation endpoints require an OAuth client secret; this app is a public Device Flow client and no secret was invented | Revoke the grant in GitHub settings, or add a confidential-client secret with a backend and implement `DELETE /applications/{client_id}/token` |
-| HMX-001 | NOT FIXED (out of scope) | Release builds still use the debug signing configuration | Explicitly excluded from this task | User's separate release-signing workstream |
+| HMX-001 | FIXED AND VERIFIED (follow-up) | Nothing for signing; only device upgrade testing from a debug-signed install remains PENDING | Completed after the remediation branch was merged, in a separate release-signing change; certificate fingerprint verified in CI | Uninstall any older debug-signed build once before installing the release-signed APK. See `HMXHARNESS_RELEASE_SIGNING_REPORT.md` |
 
 ## Runtime tests requiring a physical device
 
@@ -33,4 +33,4 @@ This document records what is **not** proven by the completed remediation. Sourc
 
 ## Confirmation
 
-No secret, token, keystore, or password value was written to the repository, logs, or these reports. `main` was not modified; HMX-001 was left untouched.
+No secret, token, keystore, or password value was written to the repository, logs, or these reports. The remediation branch did not modify `main`, and HMX-001 was left untouched there; HMX-001 was completed afterwards in a separate release-signing change documented in `HMXHARNESS_RELEASE_SIGNING_REPORT.md`.
