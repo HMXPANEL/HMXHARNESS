@@ -1800,4 +1800,24 @@
     <string name="local_thinking_on">"사고 모델 · 요청 추론"</string>
     <string name="local_thinking_direct">"무사고 모델 · 직접 답변"</string>
     <string name="local_thinking_help">"사고 모델은 모델 템플릿에서 추론을 요청합니다. 자동은 채팅의 사고 전환을 따릅니다. 생각하지 않는 것은 직접적인 대답을 요구합니다. 일부 모델은 이 요청을 무시할 수 있습니다. 인식된 사고 표시는 여전히 별도로 표시됩니다."</string>
-    </resources>
+        <string name="ui_continue_task">"Continue"</string>
+    <string name="ui_usage_by_task">"Usage by task"</string>
+    <string name="ui_usage_by_provider">"By provider"</string>
+    <string name="ui_usage_task">"Task"</string>
+    <string name="ui_usage_subagents">"Subagents"</string>
+    <string name="ui_usage_compaction">"Compaction"</string>
+    <string name="ui_usage_probes">"Provider checks"</string>
+    <string name="ui_usage_automation">"Automation setup"</string>
+    <string name="ui_usage_overhead">"Overhead"</string>
+    <string name="ui_usage_overhead_desc">"Compaction, provider checks and automation setup"</string>
+    <string name="ui_usage_retried_requests">"Retried requests"</string>
+    <string name="ui_usage_sessions">"Sessions"</string>
+    <string name="ui_usage_no_session_scope">"Outside a chat"</string>
+    <string name="ui_usage_no_session_scope_desc">"Provider checks and automation setup are not attached to a session."</string>
+    <string name="ui_usage_export_csv">"CSV"</string>
+    <string name="ui_usage_export_json">"JSON"</string>
+    <string name="ui_usage_export_failed">"Could not write the usage export."</string>
+    <string name="ui_usage_requests_value">"%1$s requests"</string>
+    <string name="ui_usage_retried_value">"%1$s retried"</string>
+    <string name="ui_usage_cross_provider_note">"Token counts are provider-reported and are not a ChatGPT plan percentage. Compare providers only as raw token volume."</string>
+</resources>

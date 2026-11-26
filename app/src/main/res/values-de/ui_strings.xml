@@ -1802,4 +1802,24 @@
     <string name="local_thinking_on">Denkmodell · Reasoning anfordern</string>
     <string name="local_thinking_direct">Kein Denkmodell · direkte Antworten</string>
     <string name="local_thinking_help">Denkmodell fordert Reasoning über das Modell-Template an. Auto folgt dem Denk-Schalter im Chat. Ohne Denken wird eine direkte Antwort angefordert. Manche Modelle ignorieren diese Anfrage; erkannte Denk-Marker werden trotzdem separat angezeigt.</string>
-    </resources>
+        <string name="ui_continue_task">"Continue"</string>
+    <string name="ui_usage_by_task">"Usage by task"</string>
+    <string name="ui_usage_by_provider">"By provider"</string>
+    <string name="ui_usage_task">"Task"</string>
+    <string name="ui_usage_subagents">"Subagents"</string>
+    <string name="ui_usage_compaction">"Compaction"</string>
+    <string name="ui_usage_probes">"Provider checks"</string>
+    <string name="ui_usage_automation">"Automation setup"</string>
+    <string name="ui_usage_overhead">"Overhead"</string>
+    <string name="ui_usage_overhead_desc">"Compaction, provider checks and automation setup"</string>
+    <string name="ui_usage_retried_requests">"Retried requests"</string>
+    <string name="ui_usage_sessions">"Sessions"</string>
+    <string name="ui_usage_no_session_scope">"Outside a chat"</string>
+    <string name="ui_usage_no_session_scope_desc">"Provider checks and automation setup are not attached to a session."</string>
+    <string name="ui_usage_export_csv">"CSV"</string>
+    <string name="ui_usage_export_json">"JSON"</string>
+    <string name="ui_usage_export_failed">"Could not write the usage export."</string>
+    <string name="ui_usage_requests_value">"%1$s requests"</string>
+    <string name="ui_usage_retried_value">"%1$s retried"</string>
+    <string name="ui_usage_cross_provider_note">"Token counts are provider-reported and are not a ChatGPT plan percentage. Compare providers only as raw token volume."</string>
+</resources>
