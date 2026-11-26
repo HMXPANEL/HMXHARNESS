@@ -93,8 +93,8 @@ class AgentBehaviorDeviceTest {
             awaitCondition { state.value.maxContextTokens == 400_000 }
             click("Tool-call iteration limit")
             awaitNode("75 rounds")
-            click("25 rounds")
-            awaitCondition { state.value.maxIterations == 25 }
+            click("20 rounds")
+            awaitCondition { state.value.maxIterations == 20 }
             click("Project instructions (AGENTS.md)")
             awaitCondition { instructionsOpened }
         }

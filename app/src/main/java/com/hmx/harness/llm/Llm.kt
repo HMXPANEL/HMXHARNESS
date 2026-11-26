@@ -148,6 +148,8 @@ sealed interface StreamEvent {
         val cacheWriteTokens: Int = 0,
         val cacheReported: Boolean = false,
         val reasoningTokens: Int? = null,
+        /** Set by [com.hmx.harness.agent.StreamRetrier] to the retry that produced this request. */
+        val attempt: Int = 0,
     ) : StreamEvent
     /** [code] is the provider's error status, even when the SSE HTTP response is 200. */
     data class Failure(val message: String, val code: Int? = null, val errorCode: String? = null,

@@ -19,6 +19,10 @@ internal enum class FallbackFailureKind { QUOTA, TRANSIENT, TERMINAL }
 
 internal fun fallbackFailureKind(failure: StreamEvent.Failure, cause: Throwable? = null): FallbackFailureKind {
     if (failure.code == 401 || failure.code == 403) return FallbackFailureKind.TERMINAL
+    // A ChatGPT subscription limit is account-wide and permanent for this run.
+    // Switching provider would hide the friendly quota message and spend on
+    // another account without the user's consent.
+    if (failure.errorCode == "subscription_sharing_usage_limit_exceeded") return FallbackFailureKind.TERMINAL
     val quotaCodes = setOf(HarnessFreeLimit.QUOTA_CODE, "insufficient_quota", "quota_exceeded", "credit_balance_too_low",
         "subscription_sharing_usage_limit_exceeded", "usage_limit_reached", "billing_hard_limit_reached")
     val quotaText = Regex("insufficient[_ ]quota|quota (?:is )?(?:exceeded|exhausted)|exceeded.{0,30}quota|" +
@@ -28,7 +32,9 @@ internal fun fallbackFailureKind(failure: StreamEvent.Failure, cause: Throwable?
     if (failure.retryable == false) return FallbackFailureKind.TERMINAL
     val transientCode = failure.code == null && failure.errorCode?.lowercase() in setOf(
         "rate_limit_exceeded", "rate_limit_error", "resource_exhausted", "overloaded_error", "unavailable", "deadline_exceeded")
-    return if (transientCode || RetryPolicy.isRetryable(cause, failure.message, failure.code)) FallbackFailureKind.TRANSIENT else FallbackFailureKind.TERMINAL
+    return if (transientCode ||
+        RetryPolicy.isRetryable(cause, failure.message, failure.code, failure.errorCode)) FallbackFailureKind.TRANSIENT
+    else FallbackFailureKind.TERMINAL
 }
 
 /** Each destination uses its own credentials. Only explicitly configured routes can be attempted. */
@@ -151,7 +157,7 @@ class FallbackProvider(
             if (policy == null) { emit(failed.copy(retryable = false)); return@flow }
             if (kind == FallbackFailureKind.TRANSIENT && attempts < policy.retries) {
                 attempts++
-                val wait = RetryPolicy.delayMs(attempts)
+                val wait = RetryPolicy.delayMs(attempts, failed.retryAfterSeconds)
                 emit(StreamEvent.Retrying(attempts, wait, "${current.name}: ${failed.message.take(160)}"))
                 sleep(wait)
                 continue

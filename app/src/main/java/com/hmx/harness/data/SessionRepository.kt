@@ -615,6 +615,8 @@ class SessionRepository(
         turnId: String? = null,
         cacheReported: Boolean = false,
         cachePrices: com.hmx.harness.llm.ModelsDev.CachePrices? = null,
+        kind: String = com.hmx.harness.data.UsageKind.CHAT,
+        attempt: Int = 0,
     ) {
         if (model.isBlank()) return
         db.dao().insertUsageEvent(
@@ -628,6 +630,8 @@ class SessionRepository(
                 cacheWriteTokens = cacheWrite,
                 turnId = turnId,
                 cacheReported = cacheReported,
+                kind = com.hmx.harness.data.UsageKind.normalize(kind),
+                attempt = attempt.coerceAtLeast(0),
                 inputPrice = cachePrices?.input,
                 cacheReadPrice = cachePrices?.read,
                 cacheWritePrice = cachePrices?.write,
@@ -637,6 +641,10 @@ class SessionRepository(
     }
 
     fun usageEventsFor(sessionId: String) = db.dao().usageEventsForSession(sessionId)
+
+    /** Local export reads one session once; empty when the session has no recorded requests. */
+    suspend fun usageEventsOnce(sessionId: String): List<com.hmx.harness.data.db.UsageEventEntity> =
+        db.dao().usageEventsForSessionOnce(sessionId)
 
     /** Per-model usage breakdown for a single session. */
     fun usageByModelFor(sessionId: String): Flow<List<com.hmx.harness.data.db.ModelUsagePojo>> =

@@ -12,6 +12,7 @@ import com.hmx.harness.agent.PermissionMode
 import com.hmx.harness.agent.ThinkingLevel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 
 val Context.settingsStore by preferencesDataStore(name = "settings")
 
@@ -247,7 +248,8 @@ data class AppSettings(
     companion object {
         const val DEFAULT_MAX_CONTEXT = 1_000_000
         const val DEFAULT_MAX_OUTPUT = 32_768
-        const val DEFAULT_MAX_ITERATIONS = 0 // unlimited
+        /** Bounded by default; zero is still an explicit unlimited choice. */
+        const val DEFAULT_MAX_ITERATIONS = com.hmx.harness.agent.IterationLimit.DEFAULT
         const val VOICE_ENGINE_INBUILT = "inbuilt"
         const val VOICE_ENGINE_GROQ = "groq"
         const val GROQ_MODEL_WHISPER_V3 = "whisper-large-v3"
@@ -361,6 +363,8 @@ class SettingsRepository(private val context: Context) {
         val RESUME_PROMPT = stringPreferencesKey("resume_prompt")
         val MAX_OUTPUT = intPreferencesKey("max_output_tokens")
         val MAX_ITERATIONS = intPreferencesKey("max_iterations")
+        /** One-time marker for the 0→50 default change; existing installs keep unlimited. */
+        val ITERATION_LIMIT_MIGRATED = booleanPreferencesKey("iteration_limit_migrated")
         val RUN_IN_BACKGROUND = booleanPreferencesKey("run_in_background")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val KEEP_ALIVE = booleanPreferencesKey("keep_alive")
@@ -455,7 +459,28 @@ class SettingsRepository(private val context: Context) {
         val CAVEMAN_WENYAN = booleanPreferencesKey("caveman_wenyan")
     }
 
-    val settings: Flow<AppSettings> = context.settingsStore.data.map { prefs ->
+    private val iterationDefaultMigration = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * Persist the iteration-limit default once. An install that already
+     * finished onboarding keeps its previous effective value (unlimited);
+     * a fresh install gets the new bounded default. A saved value always wins.
+     */
+    private suspend fun migrateIterationDefault() {
+        if (!iterationDefaultMigration.compareAndSet(false, true)) return
+        context.settingsStore.edit { prefs ->
+            if (prefs[Keys.ITERATION_LIMIT_MIGRATED] == true) return@edit
+            com.hmx.harness.agent.IterationLimit.migratedValue(
+                stored = prefs[Keys.MAX_ITERATIONS],
+                onboardingDone = prefs[Keys.ONBOARDING_DONE] == true,
+            )?.let { prefs[Keys.MAX_ITERATIONS] = it }
+            prefs[Keys.ITERATION_LIMIT_MIGRATED] = true
+        }
+    }
+
+    val settings: Flow<AppSettings> = context.settingsStore.data
+        .onStart { migrateIterationDefault() }
+        .map { prefs ->
         AppSettings(
             permissionMode = prefs[Keys.PERMISSION_MODE]
                 ?.let { runCatching { PermissionMode.valueOf(it) }.getOrNull() }

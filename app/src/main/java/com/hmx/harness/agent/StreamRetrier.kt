@@ -1,5 +1,6 @@
 package com.hmx.harness.agent
 
+import com.hmx.harness.llm.ApiException
 import com.hmx.harness.llm.ProviderConfig
 import com.hmx.harness.llm.RequestOptions
 import com.hmx.harness.llm.StreamEvent
@@ -230,6 +231,8 @@ internal object StreamRetrier {
             onAttemptStart()
             var failure: String? = null
             var failureCode: Int? = null
+            var failureErrorCode: String? = null
+            var retryAfterSeconds: Long? = null
             var retryAllowed = true
             var cause: Throwable? = null
             try {
@@ -238,9 +241,14 @@ internal object StreamRetrier {
                         is StreamEvent.Failure -> {
                             failure = event.message
                             failureCode = event.code
+                            failureErrorCode = event.errorCode
+                            retryAfterSeconds = event.retryAfterSeconds
                             retryAllowed = event.retryable != false
                         }
-                        else -> handleEvent(event)
+                        // The retry wrapper is the only place that knows which
+                        // attempt produced these counts, so tag them here
+                        // (including usage nested in a Batch).
+                        else -> handleEvent(event.withAttempt(attempt))
                     }
                     event !is StreamEvent.Failure
                 }.collect { }
@@ -254,21 +262,30 @@ internal object StreamRetrier {
             } catch (e: Exception) {
                 cause = e
                 failure = e.message ?: e.javaClass.simpleName
+                retryAfterSeconds = retryAfterSeconds ?: (e as? ApiException)?.retryAfterSeconds
             }
 
             val retryable = allowRetries && retryAllowed && failure != null &&
                 attempt < RetryPolicy.MAX_RETRIES &&
                 !hasOutput() &&
-                RetryPolicy.isRetryable(cause, failure, failureCode)
+                RetryPolicy.isRetryable(cause, failure, failureCode, failureErrorCode)
             if (!retryable) {
-                if (failure != null) onTerminalFailure(allowRetries && retryAllowed && RetryPolicy.isRetryable(cause, failure, failureCode))
+                if (failure != null) onTerminalFailure(allowRetries && retryAllowed &&
+                    RetryPolicy.isRetryable(cause, failure, failureCode, failureErrorCode))
                 return failure
             }
 
             attempt++
-            val delayMs = RetryPolicy.delayMs(attempt)
+            val delayMs = RetryPolicy.delayMs(attempt, retryAfterSeconds)
             emitEvent(AgentEvent.Retrying(attempt, delayMs, retryReason(failure)))
             sleep(delayMs)
         }
     }
+}
+
+/** Tags the retry attempt on usage, including usage carried inside a batch. */
+private fun StreamEvent.withAttempt(attempt: Int): StreamEvent = when (this) {
+    is StreamEvent.Usage -> copy(attempt = attempt)
+    is StreamEvent.Batch -> copy(events = events.map { it.withAttempt(attempt) })
+    else -> this
 }

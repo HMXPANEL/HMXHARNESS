@@ -66,4 +66,22 @@ class StatsDataTest {
     @Test fun emptyWindowHasNoRequestsSessionsOrCacheScore() {
         assertEquals(StatsSnapshot(), statsSnapshot(emptyList()))
     }
+
+    @Test fun kindAndSessionRowsSeparateTaskFromOverheadAndCountRetries() {
+        val rows = listOf(
+            StatsUsagePojo("chat-a", "P", "m", 100, 10, 0, 0, 1, kind = "chat", retriedRequests = 0),
+            StatsUsagePojo("chat-a", "P", "m", 50, 5, 0, 0, 1, kind = "compaction", retriedRequests = 1),
+            StatsUsagePojo("chat-b", "P", "m", 30, 3, 0, 0, 1, kind = "subagent", retriedRequests = 0),
+            StatsUsagePojo("", "P", "m", 20, 2, 0, 0, 1, kind = "probe", retriedRequests = 0),
+        )
+        val stats = statsSnapshot(rows)
+        assertEquals(4L, stats.bundle.requests)
+        assertEquals(1L, stats.bundle.retriedRequests)
+        assertEquals(55L, stats.byKind.single { it.kind == "compaction" }.totalTokens)
+        assertEquals(77L, stats.byKind.filter { it.overhead }.sumOf { it.totalTokens })
+        assertEquals(3, stats.bySession.size)
+        assertEquals(165L, stats.bySession.single { it.sessionId == "chat-a" }.totalTokens)
+        assertEquals(22L, stats.bySession.single { it.sessionId == "" }.totalTokens)
+        assertEquals(2, stats.bundle.sessionCount)
+    }
 }

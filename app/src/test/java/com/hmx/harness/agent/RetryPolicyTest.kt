@@ -31,6 +31,35 @@ class RetryPolicyTest {
     }
 
     @Test
+    fun `chatgpt subscription usage limit is permanent even when reported as 429`() {
+        assertFalse(RetryPolicy.isRetryable(
+            cause = null,
+            message = "ChatGPT usage limit reached.",
+            code = 429,
+            errorCode = "subscription_sharing_usage_limit_exceeded",
+        ))
+        assertTrue(RetryPolicy.isPermanentErrorCode("SUBSCRIPTION_SHARING_USAGE_LIMIT_EXCEEDED"))
+        assertFalse(RetryPolicy.isPermanentErrorCode("rate_limit_exceeded"))
+    }
+
+    @Test
+    fun `temporary rate limits stay retryable while permanent quota and auth codes do not`() {
+        assertTrue(RetryPolicy.isRetryable(null, "Slow down", 429, "rate_limit_exceeded"))
+        assertTrue(RetryPolicy.isRetryable(null, "Overloaded", 503))
+        for (code in listOf("insufficient_quota", "quota_exceeded", "billing_hard_limit_reached",
+            "invalid_api_key", "authentication_error", "permission_error", "invalid_request_error")) {
+            assertFalse(code, RetryPolicy.isRetryable(null, "failed", 429, code))
+        }
+    }
+
+    @Test
+    fun `retry after wins but stays bounded`() {
+        assertEquals(12_000L, RetryPolicy.delayMs(1, 12))
+        assertEquals(300_000L, RetryPolicy.delayMs(1, 9_999))
+        assertTrue(RetryPolicy.delayMs(1) in 700L..1_300L)
+    }
+
+    @Test
     fun `message-only http-4xx text does not match transient regex`() {
         // No typed cause available (flattened message): must not retry.
         assertFalse(RetryPolicy.isRetryable(null, "HTTP 400: invalid request"))

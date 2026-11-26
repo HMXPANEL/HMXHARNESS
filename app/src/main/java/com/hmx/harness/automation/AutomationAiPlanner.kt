@@ -76,6 +76,7 @@ class AutomationAiPlanner(private val c: AppContainer) {
         val zone = ZoneId.systemDefault()
         val now = ZonedDateTime.now(zone)
         val output = StringBuilder()
+        var reportedUsage: StreamEvent.Usage? = null
         ProviderFactory.create(provider).streamChat(
             provider.copy(model = model),
             apiKey,
@@ -88,11 +89,26 @@ class AutomationAiPlanner(private val c: AppContainer) {
                 is StreamEvent.TextDelta -> output.append(event.text)
                 is StreamEvent.Batch -> event.events.forEach { nested ->
                     if (nested is StreamEvent.TextDelta) output.append(nested.text)
+                    if (nested is StreamEvent.Usage) reportedUsage = nested
                     if (nested is StreamEvent.Failure) error(nested.message)
                 }
+                is StreamEvent.Usage -> reportedUsage = event
                 is StreamEvent.Failure -> error(event.message)
                 else -> Unit
             }
+        }
+        reportedUsage?.takeIf { com.hmx.harness.data.UsageKind.hasReportedTokens(it.inputTokens, it.outputTokens) }?.let { usage ->
+            c.sessions.recordUsage(
+                sessionId = com.hmx.harness.data.UsageKind.NO_SESSION,
+                providerName = provider.name,
+                model = model,
+                input = usage.inputTokens.toLong(),
+                output = usage.outputTokens.toLong(),
+                cached = usage.cachedInputTokens.toLong(),
+                cacheWrite = usage.cacheWriteTokens.toLong(),
+                kind = com.hmx.harness.data.UsageKind.AUTOMATION,
+                attempt = usage.attempt,
+            )
         }
         check(output.isNotBlank()) { "AI returned an empty response." }
         return parse(output.toString(), zone, now)

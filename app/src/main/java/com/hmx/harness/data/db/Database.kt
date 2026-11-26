@@ -187,6 +187,10 @@ data class UsageEventEntity(
     val createdAt: Long,
     val turnId: String? = null,
     @ColumnInfo(defaultValue = "0") val cacheReported: Boolean = false,
+    /** chat | compaction | probe | automation | subagent. */
+    @ColumnInfo(defaultValue = "'chat'") val kind: String = "chat",
+    /** Retry attempt that produced this request; 0 is the first attempt. */
+    @ColumnInfo(defaultValue = "0") val attempt: Int = 0,
     val inputPrice: Double? = null,
     val cacheReadPrice: Double? = null,
     val cacheWritePrice: Double? = null,
@@ -262,6 +266,10 @@ data class StatsUsagePojo(
     val cachedTokens: Long,
     val cacheWriteTokens: Long,
     val requests: Long,
+    /** Task kind that produced these requests. */
+    val kind: String = "chat",
+    /** Requests that needed more than the first attempt. */
+    val retriedRequests: Long = 0,
     /** Token totals from requests made in DeepSeek's peak window, priced at list rate. */
     val peakInputTokens: Long = 0,
     val peakOutputTokens: Long = 0,
@@ -692,21 +700,26 @@ interface HarnessDao {
     @Query("SELECT * FROM usage_events WHERE sessionId = :sessionId ORDER BY rowId")
     fun usageEventsForSession(sessionId: String): Flow<List<UsageEventEntity>>
 
+    /** One-shot read for local export; the live chat footer keeps the Flow above. */
+    @Query("SELECT * FROM usage_events WHERE sessionId = :sessionId ORDER BY createdAt, rowId")
+    suspend fun usageEventsForSessionOnce(sessionId: String): List<UsageEventEntity>
+
     // usage events (per-model attribution)
     @Insert
     suspend fun insertUsageEvent(event: UsageEventEntity)
 
     @Query(
-        "SELECT sessionId, providerName, model, SUM(inputTokens) AS inputTokens, " +
+        "SELECT sessionId, providerName, model, kind, SUM(inputTokens) AS inputTokens, " +
             "SUM(outputTokens) AS outputTokens, SUM(cachedTokens) AS cachedTokens, " +
             "SUM(cacheWriteTokens) AS cacheWriteTokens, " +
             "SUM(CASE WHEN " + PEAK_WINDOW_SQL + " THEN inputTokens ELSE 0 END) AS peakInputTokens, " +
             "SUM(CASE WHEN " + PEAK_WINDOW_SQL + " THEN outputTokens ELSE 0 END) AS peakOutputTokens, " +
             "SUM(CASE WHEN " + PEAK_WINDOW_SQL + " THEN cachedTokens ELSE 0 END) AS peakCachedTokens, " +
             "SUM(CASE WHEN " + PEAK_WINDOW_SQL + " THEN cacheWriteTokens ELSE 0 END) AS peakCacheWriteTokens, " +
-            "COUNT(*) AS requests " +
+            "COUNT(*) AS requests, " +
+            "SUM(CASE WHEN attempt > 0 THEN 1 ELSE 0 END) AS retriedRequests " +
             "FROM usage_events WHERE createdAt >= :since AND createdAt < :until " +
-            "GROUP BY sessionId, providerName, model"
+            "GROUP BY sessionId, providerName, model, kind"
     )
     fun statsUsageBetween(since: Long, until: Long): Flow<List<StatsUsagePojo>>
 
@@ -846,13 +859,20 @@ interface HarnessDao {
         ChatAnswerVersionEntity::class,
         SavedAnswerEntity::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): HarnessDao
 
     companion object {
+        /** Adds accounting kind/attempt without touching existing rows or totals. */
+        val MIGRATION_27_28 = object : androidx.room.migration.Migration(27, 28) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE usage_events ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'")
+                db.execSQL("ALTER TABLE usage_events ADD COLUMN attempt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
         val MIGRATION_26_27 = object : androidx.room.migration.Migration(26, 27) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE work_projects ADD COLUMN chatNamePattern TEXT")

@@ -194,6 +194,10 @@ sealed interface AgentEvent {
         val parentCallId: String? = null,
         val providerKey: String? = null,
         val reasoningTokens: Int? = null,
+        /** chat | compaction | probe | automation | subagent. */
+        val kind: String = com.hmx.harness.data.UsageKind.CHAT,
+        /** Retry attempt that produced this request; 0 is the first attempt. */
+        val attempt: Int = 0,
     ) : AgentEvent
     /** A transient provider failure will be retried after [delayMs]. */
     data class Retrying(val attempt: Int, val delayMs: Long, val reason: String) : AgentEvent
@@ -466,7 +470,7 @@ class AgentEngine(
             // navigation, a new user turn, or process death cannot eat a completion.
             if (subagentRuns != null) deliverSubagentResults(subagentRuns, sessionId, working) { emit(it) }
             if (maxIterations > 0 && iterations++ >= maxIterations) {
-                emit(AgentEvent.Error("Stopped after $maxIterations tool iterations (safety limit)."))
+                emit(AgentEvent.Error(IterationLimit.pausedMessage(maxIterations)))
                 break
             } else if (maxIterations <= 0) {
                 iterations++ // tracked for nothing, unlimited mode
@@ -689,6 +693,7 @@ class AgentEngine(
                                 reasoningTokens = event.reasoningTokens,
                                 providerKey = com.hmx.harness.llm.ModelsDev.providerKeyFor(config.baseUrl),
                                 cachePrices = if (com.hmx.harness.chatgpt.ChatGptProtocol.isProvider(config.id)) null else com.hmx.harness.llm.ModelsDev.exactCachePrices(config.baseUrl, config.model),
+                                attempt = event.attempt,
                             )
                         )
                     }
@@ -1260,6 +1265,7 @@ class AgentEngine(
                                 providerKey = com.hmx.harness.llm.ModelsDev.providerKeyFor(config.baseUrl),
                                 cachePrices = if (com.hmx.harness.chatgpt.ChatGptProtocol.isProvider(config.id)) null
                                     else com.hmx.harness.llm.ModelsDev.exactCachePrices(config.baseUrl, config.model),
+                                attempt = event.attempt,
                             )))
                         }
                         is StreamEvent.Done -> finishReason = event.finishReason
@@ -2292,6 +2298,8 @@ class AgentEngine(
                                 cachePrices = if (com.hmx.harness.chatgpt.ChatGptProtocol.isProvider(config.id)) null else com.hmx.harness.llm.ModelsDev.exactCachePrices(config.baseUrl, config.model),
                                 parentCallId = parentCallId,
                                 providerKey = com.hmx.harness.llm.ModelsDev.providerKeyFor(config.baseUrl),
+                                kind = com.hmx.harness.data.UsageKind.SUBAGENT,
+                                attempt = event.attempt,
                             ))
                         }
                         else -> {}
@@ -2425,7 +2433,8 @@ class AgentEngine(
                     is StreamEvent.Retrying -> emit(AgentEvent.Retrying(event.attempt, event.delayMs, event.reason))
                     is StreamEvent.Usage -> emit(AgentEvent.Usage(event.inputTokens, event.outputTokens, event.cachedInputTokens,
                         event.cacheWriteTokens, cfg.model, cfg.name, event.cacheReported, com.hmx.harness.llm.ModelsDev.exactCachePrices(cfg.baseUrl, cfg.model),
-                        providerKey = com.hmx.harness.llm.ModelsDev.providerKeyFor(cfg.baseUrl)))
+                        providerKey = com.hmx.harness.llm.ModelsDev.providerKeyFor(cfg.baseUrl),
+                        kind = com.hmx.harness.data.UsageKind.COMPACTION, attempt = event.attempt))
                     else -> Unit
                 } })
             emit(AgentEvent.Compacted(summary, keepCount))

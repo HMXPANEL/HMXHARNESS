@@ -1045,6 +1045,8 @@ class RunManager(
                     turnId = turnId,
                     cacheReported = event.cacheReported,
                     cachePrices = event.cachePrices,
+                    kind = event.kind,
+                    attempt = event.attempt,
                 )
             }
 
@@ -1097,6 +1099,11 @@ class RunManager(
                     sessions.addMessage(sessionId, ChatMessage(role = Role.SYSTEM, text = event.message, isError = true))
                 }
                 live.update { it.copy(error = event.message, compactionNote = null, codeDrafts = emptyMap()) }
+                // The iteration bound pauses rather than fails; keep its exact
+                // reason so the chat card offers Continue instead of Resume.
+                if (IterationLimit.isLimitReason(event.message)) {
+                    controls.update(sessionId) { it.copy(reason = event.message) }
+                }
             }
 
             is AgentEvent.SubagentStep -> live.update { st ->
@@ -1623,7 +1630,7 @@ class RunManager(
                 sessions.addUsage(sid, inputTokens.toLong(), outputTokens.toLong(), cachedInputTokens.toLong(), cacheWriteTokens.toLong())
                 sessions.recordUsage(sid, providerName, model, inputTokens.toLong(), outputTokens.toLong(),
                     cachedInputTokens.toLong(), cacheWriteTokens.toLong(), turnId = turnId,
-                    cacheReported = cacheReported, cachePrices = cachePrices)
+                    cacheReported = cacheReported, cachePrices = cachePrices, attempt = attempt)
             }
             if (event is SideEvent.ProviderChanged) controls.update(sid) { it.copy(usedProviderIds = it.usedProviderIds + event.config.id) }
         }.flowOn(Dispatchers.IO + fallback)
@@ -1719,7 +1726,7 @@ class RunManager(
                 sessions.addUsage(sid, inputTokens.toLong(), outputTokens.toLong(), cachedInputTokens.toLong(), cacheWriteTokens.toLong())
                 sessions.recordUsage(sid, providerName, model, inputTokens.toLong(), outputTokens.toLong(),
                     cachedInputTokens.toLong(), cacheWriteTokens.toLong(), turnId = turnId,
-                    cacheReported = cacheReported, cachePrices = cachePrices)
+                    cacheReported = cacheReported, cachePrices = cachePrices, attempt = attempt)
             }
         }.flowOn(Dispatchers.IO)
     }

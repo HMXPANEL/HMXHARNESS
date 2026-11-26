@@ -54,6 +54,11 @@ class ChatGptAccounts(
         ?: ChatGptStore("urn:uuid:${UUID.randomUUID()}").also { write(json.encodeToString(it)) }
     private val mutableState = MutableStateFlow(ChatGptAccountState())
     val state = mutableState.asStateFlow()
+    /**
+     * Provider-reported usage from model discovery. Set by the app container
+     * once usage storage exists; never called with invented counts.
+     */
+    var onProbeUsage: (suspend (providerName: String, model: String, usage: StreamEvent.Usage) -> Unit)? = null
     private var signInJob: Job? = null
     private var listener: ChatGptLoopback? = null
 
@@ -211,6 +216,9 @@ class ChatGptAccounts(
                     ModelEntry("gpt-6-luna", reasoning = true, displayName = "GPT-6 Luna"),
                 ).filter { candidate -> catalog.none { it.id == candidate.id } }
                 val provider = ChatGptProvider(::accessToken, http)
+                // The same display name chat usage uses, so stats group the
+                // account's probes with its normal requests.
+                val providerName = "ChatGPT · " + runCatching { stateAccount(providerId).label }.getOrDefault("Account")
                 var added = 0
                 for (candidate in candidates) {
                     val events = withTimeoutOrNull(45_000) {
@@ -220,6 +228,17 @@ class ChatGptAccounts(
                     }.orEmpty()
                     val succeeded = events.any { it is StreamEvent.Done } && events.none { it is StreamEvent.Failure } &&
                         events.filterIsInstance<StreamEvent.TextDelta>().any { it.text.isNotBlank() }
+                    // A probe consumed tokens even when the model turned out not
+                    // to be usable, so record whatever the provider reported.
+                    events.flatMap { if (it is StreamEvent.Batch) it.events else listOf(it) }
+                        .filterIsInstance<StreamEvent.Usage>()
+                        .lastOrNull()
+                        ?.takeIf { com.hmx.harness.data.UsageKind.hasReportedTokens(it.inputTokens, it.outputTokens) }
+                        ?.let { usage ->
+                            try { onProbeUsage?.invoke(providerName, candidate.id, usage) }
+                            catch (ce: CancellationException) { throw ce }
+                            catch (_: Exception) { /* Accounting must not break model discovery. */ }
+                        }
                     if (succeeded) lock.withLock {
                         val latest = registration(providerId)
                         check(latest.connected && latest.subject == before.subject) { "ChatGPT connection changed. Check models again." }

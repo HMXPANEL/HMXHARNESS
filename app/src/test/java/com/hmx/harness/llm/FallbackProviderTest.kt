@@ -69,6 +69,18 @@ class FallbackProviderTest {
         assertEquals(FallbackFailureKind.QUOTA, fallbackFailureKind(StreamEvent.Failure("payment required", 402)))
     }
 
+    @Test fun `chatgpt subscription usage limit never switches account`() = runBlocking(FallbackRun { policy }) {
+        val usage = StreamEvent.Failure(
+            "ChatGPT usage limit reached.", 429,
+            "subscription_sharing_usage_limit_exceeded", retryable = false,
+        )
+        assertEquals(FallbackFailureKind.TERMINAL, fallbackFailureKind(usage))
+        val requests = mutableListOf<String>()
+        val result = events(router({ cfg, _, _ -> requests += cfg.id; listOf(usage) }))
+        assertEquals(listOf("a"), requests)
+        assertTrue(result.filterIsInstance<StreamEvent.ProviderChanged>().isEmpty())
+    }
+
     @Test fun `permanent auth invalid request and context errors never advance`() = runBlocking(FallbackRun { policy }) {
         for (failure in listOf(StreamEvent.Failure("Auth", 401), StreamEvent.Failure("Policy", 403),
             StreamEvent.Failure("Context too large", 400), StreamEvent.Failure("Model removed", 404))) {

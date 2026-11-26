@@ -359,7 +359,7 @@ internal fun AgentBehaviorSection(
                 title = stringResource(R.string.settings_anchor_tool_iterations)
                 description = stringResource(R.string.settings_agent_tool_rounds_detail)
                 selected = settings.maxIterations.coerceAtLeast(0).toString()
-                choices = (listOf(0, 25, 100, 250) + settings.maxIterations.coerceAtLeast(0))
+                choices = (com.hmx.harness.agent.IterationLimit.OPTIONS + settings.maxIterations.coerceAtLeast(0))
                     .distinct().sorted().map {
                         BehaviorChoice(
                             it.toString(),

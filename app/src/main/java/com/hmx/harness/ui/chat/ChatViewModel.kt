@@ -135,7 +135,7 @@ data class ChatUiState(
     /** App-wide resume prompt; blank means the built-in text. A chat's own prompt lives on its task record. */
     val resumePrompt: String = "",
     val maxOutputTokens: Int = 32_768,
-    val maxIterations: Int = 0,
+    val maxIterations: Int = com.hmx.harness.agent.IterationLimit.DEFAULT,
     val providers: List<ProviderConfig> = emptyList(),
     val activeProviderId: String? = null,
     val estimate: ContextEstimate? = null,
@@ -2310,7 +2310,8 @@ class ChatViewModel(
                                 event.cachedInputTokens.toLong(), event.cacheWriteTokens.toLong())
                             c.sessions.recordUsage(sid, cfg.name, cfg.model, event.inputTokens.toLong(), event.outputTokens.toLong(),
                                 event.cachedInputTokens.toLong(), event.cacheWriteTokens.toLong(),
-                                cacheReported = event.cacheReported, cachePrices = com.hmx.harness.llm.ModelsDev.exactCachePrices(cfg.baseUrl, cfg.model))
+                                cacheReported = event.cacheReported, cachePrices = com.hmx.harness.llm.ModelsDev.exactCachePrices(cfg.baseUrl, cfg.model),
+                                kind = com.hmx.harness.data.UsageKind.COMPACTION, attempt = event.attempt)
                         }
                         // Keep the snapshot unchanged until its summary is committed.
                         is com.hmx.harness.llm.StreamEvent.ProviderChanged -> {
