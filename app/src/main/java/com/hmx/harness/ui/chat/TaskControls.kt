@@ -33,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hmx.harness.agent.*
@@ -108,7 +109,7 @@ fun TaskProgressCard(
                         TextButton(onClick = onWaitLonger) { Text(uiContext.getString(R.string.stall_timeout_wait_longer)) }
                     else TextButton(onClick = onSettings) { Text(uiContext.getString(R.string.ui_context_limits)) }
                     ResumeSplitButton(
-                        uiContext.getString(if (IterationLimit.isLimitReason(record.reason))
+                        stringResource(if (IterationLimit.isLimitReason(record.reason))
                             R.string.ui_continue_task else R.string.ui_resume_task),
                         onResume, onEditPrompt = onEditPrompt, onResetPrompt = onResetPrompt)
                 }

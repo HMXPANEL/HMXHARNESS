@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -96,6 +97,7 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
     var pendingCsv by remember { mutableStateOf<Pair<String, String>?>(null) }
     var pendingJson by remember { mutableStateOf<Pair<String, String>?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
+    val exportFailedText = stringResource(R.string.ui_usage_export_failed)
     fun writeExport(uri: Uri?, pending: Pair<String, String>?) {
         if (uri == null || pending == null) return
         scope.launch(Dispatchers.IO) {
@@ -104,7 +106,7 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
                     ?: error("no output stream")
             } catch (_: Exception) {
                 withContext(Dispatchers.Main) {
-                    exportError = uiContext.getString(R.string.ui_usage_export_failed)
+                    exportError = exportFailedText
                 }
             }
         }
@@ -133,7 +135,7 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
             }
         }
     }
-    fun kindLabel(kind: String): String = uiContext.getString(when (kind) {
+    @Composable fun kindLabel(kind: String): String = stringResource(when (kind) {
         UsageKind.SUBAGENT -> R.string.ui_usage_subagents
         UsageKind.COMPACTION -> R.string.ui_usage_compaction
         UsageKind.PROBE -> R.string.ui_usage_probes
@@ -222,20 +224,20 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
                 }
             }
             UsageCard {
-                Text(uiContext.getString(R.string.ui_usage_by_provider), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (byProvider.isEmpty()) Text(uiContext.getString(R.string.ui_no_dated_model_activity_in_this_period),
+                Text(stringResource(R.string.ui_usage_by_provider), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                if (byProvider.isEmpty()) Text(stringResource(R.string.ui_no_dated_model_activity_in_this_period),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 byProvider.forEachIndexed { index, row ->
                     if (index > 0) HorizontalDivider(color = scheme.outlineVariant.copy(alpha = .45f))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(row.providerName.ifBlank { uiContext.getString(R.string.ui_usage_no_session_scope) },
+                            Text(row.providerName.ifBlank { stringResource(R.string.ui_usage_no_session_scope) },
                                 style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text(
-                                uiContext.getString(R.string.ui_usage_requests_value, row.requests.toString()) +
+                                stringResource(R.string.ui_usage_requests_value, row.requests.toString()) +
                                     ((row.retriedRequests).takeIf { it > 0 }?.let { retried ->
-                                        " · " + uiContext.getString(R.string.ui_usage_retried_value, retried.toString())
+                                        " · " + stringResource(R.string.ui_usage_retried_value, retried.toString())
                                     } ?: ""),
                                 style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant,
                             )
@@ -246,7 +248,7 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
                 }
             }
             UsageCard {
-                Text(uiContext.getString(R.string.ui_usage_by_task), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ui_usage_by_task), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 listOf(UsageKind.CHAT, UsageKind.SUBAGENT, UsageKind.COMPACTION, UsageKind.PROBE, UsageKind.AUTOMATION).forEach { kind ->
                     val row = byKind.firstOrNull { it.kind == kind }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -254,9 +256,9 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(kindLabel(kind), style = MaterialTheme.typography.titleSmall)
                             Text(
-                                uiContext.getString(R.string.ui_usage_requests_value, (row?.requests ?: 0).toString()) +
+                                stringResource(R.string.ui_usage_requests_value, (row?.requests ?: 0).toString()) +
                                     ((row?.retriedRequests ?: 0).takeIf { it > 0 }?.let { retried ->
-                                        " · " + uiContext.getString(R.string.ui_usage_retried_value, retried.toString())
+                                        " · " + stringResource(R.string.ui_usage_retried_value, retried.toString())
                                     } ?: ""),
                                 style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant,
                             )
@@ -268,27 +270,27 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
                 HorizontalDivider(color = scheme.outlineVariant.copy(alpha = .5f))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column(Modifier.weight(1f)) {
-                        Text(uiContext.getString(R.string.ui_usage_overhead), style = MaterialTheme.typography.titleSmall)
-                        Text(uiContext.getString(R.string.ui_usage_overhead_desc), style = MaterialTheme.typography.labelSmall,
+                        Text(stringResource(R.string.ui_usage_overhead), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.ui_usage_overhead_desc), style = MaterialTheme.typography.labelSmall,
                             color = scheme.onSurfaceVariant)
                     }
                     Text(formatTokenCount(byKind.filter { it.overhead }.sumOf { it.totalTokens }),
                         fontFamily = HarnessMono, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (bundle.retriedRequests > 0) Text(
-                    uiContext.getString(R.string.ui_usage_retried_requests) + ": " + bundle.retriedRequests,
+                    stringResource(R.string.ui_usage_retried_requests) + ": " + bundle.retriedRequests,
                     style = MaterialTheme.typography.bodySmall)
-                Text(uiContext.getString(R.string.ui_usage_cross_provider_note), style = MaterialTheme.typography.labelSmall,
+                Text(stringResource(R.string.ui_usage_cross_provider_note), style = MaterialTheme.typography.labelSmall,
                     color = scheme.onSurfaceVariant)
             }
             UsageCard {
-                Text(uiContext.getString(R.string.ui_usage_sessions), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (bySession.isEmpty()) Text(uiContext.getString(R.string.ui_no_dated_model_activity_in_this_period),
+                Text(stringResource(R.string.ui_usage_sessions), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                if (bySession.isEmpty()) Text(stringResource(R.string.ui_no_dated_model_activity_in_this_period),
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 bySession.forEachIndexed { index, session ->
                     if (index > 0) HorizontalDivider(color = scheme.outlineVariant.copy(alpha = .45f))
                     val title = if (session.sessionId == UsageKind.NO_SESSION) {
-                        uiContext.getString(R.string.ui_usage_no_session_scope)
+                        stringResource(R.string.ui_usage_no_session_scope)
                     } else {
                         sessionTitles[session.sessionId]?.takeIf { it.isNotBlank() } ?: session.sessionId
                     }
@@ -297,24 +299,24 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text(
-                                uiContext.getString(R.string.ui_usage_requests_value, session.requests.toString()) +
+                                stringResource(R.string.ui_usage_requests_value, session.requests.toString()) +
                                     " · " + formatTokenCount(session.totalTokens),
                                 style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant,
                             )
                         }
                         if (session.sessionId != UsageKind.NO_SESSION) {
                             TextButton(onClick = { exportSession(session, json = false) }) {
-                                Text(uiContext.getString(R.string.ui_usage_export_csv))
+                                Text(stringResource(R.string.ui_usage_export_csv))
                             }
                             TextButton(onClick = { exportSession(session, json = true) }) {
-                                Text(uiContext.getString(R.string.ui_usage_export_json))
+                                Text(stringResource(R.string.ui_usage_export_json))
                             }
                         }
                     }
                 }
                 exportError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.error) }
                 if (bySession.any { it.sessionId == UsageKind.NO_SESSION }) Text(
-                    uiContext.getString(R.string.ui_usage_no_session_scope_desc),
+                    stringResource(R.string.ui_usage_no_session_scope_desc),
                     style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
             }
             UsageCard {
@@ -329,7 +331,7 @@ internal fun StatsScreen(repository: SessionRepository, onBack: () -> Unit) {
                     StatsSort.PRICE -> models.sortedByDescending { it.second ?: -1.0 }
                     StatsSort.REQUESTS -> models.sortedByDescending { it.first.requests }
                 }
-                if (sorted.isEmpty()) Text(uiContext.getString(R.string.ui_no_dated_model_activity_in_this_period), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                if (sorted.isEmpty()) Text(stringResource(R.string.ui_no_dated_model_activity_in_this_period), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 val max = sorted.maxOfOrNull { it.first.totalTokens }?.coerceAtLeast(1) ?: 1
                 sorted.forEachIndexed { index, (model, price) ->
                     if (index > 0) HorizontalDivider(color = scheme.outlineVariant.copy(alpha = .45f))
